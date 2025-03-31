@@ -6,9 +6,10 @@ import { FormGenerator } from './components/formGenerator.js';
 import {
   saveAnime,
   editAnime,
-  postSelectedColumn,
-  getSelectedColumn,
-  deleteAnime
+  saveSeason,
+  getSeason,
+  deleteAnime,
+  deleteSeason
 } from './fetch.js';
 /**
  * Initialize the anime form
@@ -201,7 +202,7 @@ function initSeasonForm(containerId) {
     fields: [
       {
         id: 'season_name',
-        name: 'nombre',
+        name: 'season_name',
         label: 'Nombre',
         type: 'text',
         placeholder: '{{nombre}}',
@@ -209,7 +210,7 @@ function initSeasonForm(containerId) {
       },
       {
         id: 'season_num',
-        name: 'numero',
+        name: 'season_num',
         label: 'Número',
         type: 'number',
         placeholder: '{{numero}}',
@@ -217,7 +218,7 @@ function initSeasonForm(containerId) {
       },
       {
         id: 'season_portada',
-        name: 'portada',
+        name: 'season_portada',
         label: 'Portada',
         type: 'text',
         placeholder: '{{portada}}',
@@ -225,7 +226,7 @@ function initSeasonForm(containerId) {
       },
       {
         id: 'season_descripcion',
-        name: 'descripcion',
+        name: 'season_descripcion',
         label: 'Descripción',
         type: 'textarea',
         placeholder: '{{descripcion}}',
@@ -233,10 +234,18 @@ function initSeasonForm(containerId) {
       },
       {
         id: 'season_nsfw',
-        name: 'nsfw',
+        name: 'season_nsfw',
         label: 'NSFW',
         type: 'checkbox',
         placeholder: '{{nsfw}}',
+        required: false
+      },
+      {
+        id: 'idTemporada',
+        name: 'idTemporada',
+        label: 'Temporada ID',
+        type: 'text',
+        placeholder: '{{id}}',
         required: false
       }
     ],
@@ -244,12 +253,12 @@ function initSeasonForm(containerId) {
       conditionalFields: true,
       fieldToCheck: secondRequiredFields,
       valueToCheck: 'any',
-      excludeFields: ['id']
+      excludeFields: ['id','season_id']
     },
     savecallback: () => {
       const newdata = getseasonModaldata();
       console.log('Save clicked', newdata);
-      postSelectedColumn(newdata, ()=>{
+      saveSeason(newdata, ()=>{
       });
     }
 
@@ -265,14 +274,16 @@ function getseasonModaldata(getelements = false) {
   const season_portada = document.querySelector('#season_portada');
   const season_descripcion = document.querySelector('#season_descripcion');
   const season_nsfw = document.querySelector('#season_nsfw');
-  const season_id = document.querySelector('#form_id');
+  const anime_id = document.querySelector('#form_id');
+  const season_id = document.querySelector('#idTemporada');
   const formelements = {
-    "id": season_id,
+    "id": anime_id,
     'nombre': season_name,
     'numero': season_num,
     'portada': season_portada,
     'descripcion': season_descripcion,
     'nsfw': season_nsfw,
+    'idTemporada': season_id,
   }
   Object.keys(formelements).forEach(key => {
     allvalues[key] = formelements[key].getInputValues();
@@ -304,7 +315,7 @@ function setupTableEventListeners() {
   miTabla.addEventListener('select-column',async (event) => {
     const selectColumn = event.detail;
     miBarra.data = selectColumn;
-    const result = await getSelectedColumn(selectColumn);
+    const result = await getSeason(selectColumn);
     console.log("result",result);
     secondTabla.setData(result,["animeId","idTemporada","nombreTemporada"])
   });
@@ -329,6 +340,28 @@ function setupTableEventListeners() {
           const modal =  initSeasonForm("modal-form-season");
           modal.setFormData({id: data.id});
       }
+  });
+  secondTabla.addEventListener('edit-item', (event) => {
+      const item = event.detail; // El objeto completo está en event.detail
+      const editdata ={
+        ...item, // Copia todas las propiedades del objeto original
+        season_num: item.numeroTemporada,
+        season_name: item.nombreTemporada,
+        season_descripcion: item.descripcionTemporada,
+        season_portada: item.portadaTemporada,
+        season_nsfw: item.nsfw,
+        id: item.animeId
+      }
+      console.log(editdata)
+
+      const editform =  initSeasonForm("modal-form-season");
+      editform.setFormData(editdata);
+  });
+  secondTabla.addEventListener('delete-item', (event) => {
+    const DeleteItem = event.detail;
+    console.log('Evento ELIMINAR recibido:', DeleteItem);
+    deleteSeason(DeleteItem, ()=>{
+    })
   });
 }
 

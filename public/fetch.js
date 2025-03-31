@@ -1,4 +1,5 @@
 /*{ numero, nombre, descripcion, portada, nsfw = false }*/ ///anime/:animeId/temporadas
+const BaseUrl = 'http://localhost:3001';
 async function saveAnime(anime, cb = () => {}) {
     //transformar descripcionCatalogo de array a string
     //estadoCatalogo to number
@@ -19,10 +20,10 @@ async function saveAnime(anime, cb = () => {}) {
     };  
   
     try {
-        const url = sendData.idCatalogo ? `http://localhost:3001/api/anime/${sendData.idCatalogo}` : 'http://localhost:3001/api/anime';
+        const url = sendData.idCatalogo ? `/api/anime/${sendData.idCatalogo}` : '/api/anime';
         const method =  sendData.idCatalogo ? 'PUT' : 'POST';   
         console.log("saveAnime", anime, sendData, url, method);
-        const response = await fetch(url, {
+        const response = await fetch(BaseUrl + url, {
             method,
             headers: {
                 'Content-Type': 'application/json',
@@ -43,7 +44,7 @@ async function saveAnime(anime, cb = () => {}) {
   // Función para eliminar un anime
   async function editAnime(id,editform) {
     try {
-      const response = await fetch(`http://localhost:3001/api/anime/${id}`);
+      const response = await fetch(BaseUrl + `/api/anime/${id}`);
       const anime = await response.json();
       
       // Aquí deberías implementar la lógica para editar el anime
@@ -70,9 +71,9 @@ async function saveAnime(anime, cb = () => {}) {
     }
   
   }
-  async function getSelectedColumn(data){
+  async function getSeason(data){
     try {
-      const response = await fetch('/api/anime/'+data.id+"/temporadas", {
+      const response = await fetch(BaseUrl +'/api/anime/'+data.id+"/temporadas", {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -85,27 +86,30 @@ async function saveAnime(anime, cb = () => {}) {
       console.error('Error al obtener columna:', error);
     }
   }
-  async function postSelectedColumn(data){
+  async function saveSeason(data, cb = () => {}) {
     // estructure { numero, nombre, descripcion, portada, nsfw = false }
+    const method = data.idTemporada ? 'PUT' : 'POST';
+    const url = data.idTemporada ? `/api/anime/${data.id}/temporadas/${data.idTemporada}` : '/api/anime/'+data.id+"/temporadas";
     try {
-      const response = await fetch('/api/anime/'+data.id+"/temporadas", {
-        method: 'POST',
+      const response = await fetch(BaseUrl + url, {
+        method: method,
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(data),
       });
       const column = await response.json();
-      console.log(column);
+      if (cb) cb();
       return column;
     } catch (error) {
       console.error('Error al obtener columna:', error);
     }
   }
+  
   async function deleteAnime(id, cb = () => {}) {
     if (confirm('¿Estás seguro de eliminar este anime?')) {
         try {
-            const response = await fetch(`http://localhost:3001/api/anime/${id}`, {
+            const response = await fetch(`/api/anime/${id}`, {
                 method: 'DELETE'
             });
             
@@ -119,10 +123,31 @@ async function saveAnime(anime, cb = () => {}) {
         }
     }
   }
+  async function deleteSeason(data, cb = () => {}) {
+    const { animeId, idTemporada } = data;
+    if (!animeId || !idTemporada) return;
+    if (confirm('¿Estás seguro de eliminar esta temporada?')) {
+        try {
+          ///anime/:animeId/temporadas/:temporadaId
+            const response = await fetch(`/api/anime/${animeId}/temporadas/${idTemporada}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                if (cb) cb();
+            } else {
+                console.error('Error al eliminar temporada:', await response.text());
+            }
+        } catch (error) {
+            console.error('Error al eliminar temporada:', error);
+        }
+    }
+  }
   export {
     saveAnime,
     editAnime,
-    postSelectedColumn,
-    getSelectedColumn,
-    deleteAnime
+    saveSeason,
+    getSeason,
+    deleteAnime,
+    deleteSeason
   }

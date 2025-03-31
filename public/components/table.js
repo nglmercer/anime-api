@@ -215,7 +215,11 @@ class ObjectTable extends HTMLElement {
                     // en este componente para reflejar el cambio.
                 }
             } else {
-                 console.warn('ObjectTable: No se pudo encontrar el item asociado a la fila.');
+                this.dispatchEvent(new CustomEvent(action, {
+                    detail: itemData,
+                    bubbles: true,
+                    composed: true
+                }));
             }
         }
     }

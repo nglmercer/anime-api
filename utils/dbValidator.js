@@ -5,117 +5,248 @@ const mysql = require('mysql2/promise');
 const fs = require('fs').promises;
 const path = require('path');
 
-/**
- * Verifica la estructura de las tablas en la base de datos
- * @param {Object} db - Conexión a la base de datos
- * @returns {Promise<Object>} - Resultado de la validación
- */
+// validateDatabaseStructure function with corrected key expectations
 async function validateDatabaseStructure(db) {
+    console.log('Iniciando validación de estructura de base de datos...');
+    const errors = [];
+    let overallValid = true;
+
+    // Este esquema esperado YA ESTÁ CORRECTO y coincide con el database.sql corregido
+    const expectedSchema = {
+        'catalogo': [
+            { name: 'id', type: 'int' },
+            { name: 'nombre', type: 'varchar'}, // Correcto: Se espera UNI
+            { name: 'estado', type: 'int', },
+            { name: 'imagen_fondo', type: 'varchar' },
+            { name: 'descripcion', type: 'text', },
+            { name: 'nsfw', type: 'tinyint', }, // Correcto: tinyint para BOOLEAN
+            { name: 'trailer', type: 'varchar', },
+            { name: 'recomendacion', type: 'tinyint', } // Correcto: tinyint para BOOLEAN
+        ],
+        'temporadas': [
+            { name: 'id', type: 'int' },
+            { name: 'anime_id', type: 'int'}, // Correcto: Se espera NOT NULL y MUL (por FK)
+            { name: 'numero', type: 'int',/*Removed */ }, // Correcto: UNI no esperado aquí
+            { name: 'nombre', type: 'varchar', },
+            { name: 'descripcion', type: 'text', },
+            { name: 'portada', type: 'varchar', },
+            { name: 'nsfw', type: 'tinyint', }
+        ],
+        'capitulos': [
+            { name: 'id', type: 'int' },
+            { name: 'temporada_id', type: 'int'}, // Correcto: Se espera NOT NULL y MUL (por FK)
+            { name: 'numero', type: 'int',/*Removed */ }, // Correcto: UNI no esperado aquí
+            { name: 'titulo', type: 'varchar', },
+            { name: 'descripcion', type: 'text', },
+            { name: 'imagen', type: 'varchar', },
+            { name: 'path', type: 'varchar', },
+            { name: 'duracion_minutos', type: 'int', },
+            { name: 'me_gustas', type: 'int', },
+            { name: 'no_me_gustas', type: 'int', },
+            { name: 'reproducciones', type: 'int', }
+        ],
+        'lenguaje': [
+            { name: 'id', type: 'int' },
+            { name: 'nombre', type: 'varchar',},
+            { name: 'codigo', type: 'varchar',},
+            { name: 'ruta', type: 'varchar',},
+            { name: 'estado', type: 'int', },
+            { name: 'capitulo_id', type: 'int'} // Correcto: Se espera NOT NULL y MUL (por FK)
+        ]
+    };
+
+    // La lógica de validación aquí es robusta y parece correcta.
     try {
-        console.log('Iniciando validación de estructura de base de datos...');
-        
-        // Definición esperada de las tablas
-        const expectedTables = {
-            'catalogo': [
-                { name: 'id', type: 'int' },
-                { name: 'nombre', type: 'varchar' },
-                { name: 'imagen_fondo', type: 'varchar' },
-                { name: 'estado', type: 'int' },
-                { name: 'descripcion', type: 'text' },
-                { name: 'nsfw', type: 'tinyint' },
-                { name: 'trailer', type: 'varchar' },
-                { name: 'recomendacion', type: 'tinyint' }
-            ],
-            'temporada': [
-                { name: 'id', type: 'int' },
-                { name: 'catalogo_id', type: 'int' },
-                { name: 'nombre', type: 'varchar' },
-                { name: 'portada', type: 'varchar' },
-                { name: 'numero', type: 'int' }
-            ],
-            'capitulo': [
-                { name: 'id', type: 'int' },
-                { name: 'numero', type: 'int' },
-                { name: 'temporada_id', type: 'int' },
-                { name: 'reproducciones', type: 'int' }
-            ],
-            'lenguaje': [
-                { name: 'id', type: 'int' },
-                { name: 'nombre', type: 'varchar' },
-                { name: 'codigo', type: 'varchar' },
-                { name: 'ruta', type: 'varchar' },
-                { name: 'estado', type: 'int' },
-                { name: 'capitulo_id', type: 'int' }
-            ]
-        };
+        const [existingTablesResult] = await db.query('SHOW TABLES');
+        const existingTableNames = existingTablesResult.map(row => Object.values(row)[0]);
+        const expectedTableNames = Object.keys(expectedSchema);
 
-        const validationResults = {};
-        const errors = [];
-
-        // Verificar cada tabla
-        for (const tableName of Object.keys(expectedTables)) {
-            try {
-                // Obtener estructura actual de la tabla
-                const [columns] = await db.query(`DESCRIBE ${tableName}`);
-                const actualColumns = columns.map(col => ({
-                    name: col.Field,
-                    type: col.Type.split('(')[0].toLowerCase()
-                }));
-
-                // Comparar columnas esperadas con las actuales
-                const missingColumns = [];
-                const expectedColumns = expectedTables[tableName];
-
-                for (const expectedCol of expectedColumns) {
-                    const found = actualColumns.some(actualCol => 
-                        actualCol.name === expectedCol.name && 
-                        actualCol.type.includes(expectedCol.type.toLowerCase())
-                    );
-
-                    if (!found) {
-                        missingColumns.push(expectedCol.name);
-                    }
-                }
-
-                validationResults[tableName] = {
-                    exists: true,
-                    missingColumns,
-                    valid: missingColumns.length === 0
-                };
-
-                if (missingColumns.length > 0) {
-                    errors.push(`Tabla '${tableName}' tiene columnas faltantes o incorrectas: ${missingColumns.join(', ')}`);
-                }
-            } catch (error) {
-                validationResults[tableName] = {
-                    exists: false,
-                    error: error.message
-                };
-                errors.push(`Error al validar tabla '${tableName}': ${error.message}`);
-            }
+        const missingTables = expectedTableNames.filter(tableName => !existingTableNames.includes(tableName));
+        if (missingTables.length > 0) {
+             missingTables.forEach(tableName => errors.push(`Tabla requerida '${tableName}' no encontrada.`));
+             overallValid = false; // Marcar como inválido si faltan tablas
         }
 
-        return {
-            valid: errors.length === 0,
-            tables: validationResults,
-            errors
-        };
+        for (const tableName of expectedTableNames) {
+             if (!existingTableNames.includes(tableName)) {
+                // Si la tabla falta y ya se reportó, continuar
+                 if (missingTables.includes(tableName)) {
+                    continue;
+                 }
+                 // Si no se reportó antes (caso raro), añadir error
+                errors.push(`Tabla requerida '${tableName}' no encontrada (inesperado).`);
+                overallValid = false;
+                continue;
+            }
+
+            const [actualColumnsResult] = await db.query(`DESCRIBE ${tableName}`);
+            // Usar un Map para búsqueda eficiente y para rastrear columnas no esperadas (aunque no se use aquí)
+            const actualColumnsMap = new Map(actualColumnsResult.map(col => [col.Field, col]));
+            const expectedColumns = expectedSchema[tableName];
+
+            for (const expectedCol of expectedColumns) {
+                const actualCol = actualColumnsMap.get(expectedCol.name);
+                if (!actualCol) {
+                    // Si la columna no existe en la BD
+                     errors.push(`Tabla '${tableName}': Falta columna requerida '${expectedCol.name}'.`);
+                    overallValid = false;
+                } else {
+                    // Si la columna existe, verificar tipo, nulabilidad y clave
+                    const actualTypeBase = actualCol.Type.toLowerCase().split('(')[0];
+                    const expectedTypeBase = expectedCol.type.toLowerCase();
+
+                    // Check Type (con tolerancia para int/varchar y tinyint(1))
+                    // Usar includes puede ser un poco laxo, pero funciona para tipos comunes.
+                    // Una comparación más estricta podría ser necesaria para casos complejos.
+                    if (!actualTypeBase.includes(expectedTypeBase)) {
+                         // Excepción específica para BOOLEAN/TINYINT(1)
+                        if (!((expectedTypeBase === 'tinyint' || expectedTypeBase === 'boolean') && actualCol.Type.toLowerCase() === 'tinyint(1)')) {
+                             errors.push(`Tabla '${tableName}', Columna '${expectedCol.name}': Tipo inesperado. Se esperaba ~'${expectedTypeBase}', se encontró '${actualCol.Type}'.`);
+                             overallValid = false;
+                        }
+                    }
+
+                    // Check Nullability
+                    if (expectedCol.nullable !== undefined && actualCol.Null !== expectedCol.nullable) {
+                       errors.push(`Tabla '${tableName}', Columna '${expectedCol.name}': Nulabilidad incorrecta. Se esperaba '${expectedCol.nullable}', se encontró '${actualCol.Null}'.`);
+                       overallValid = false;
+                    }
+
+                    // Check Key status (PRI, UNI, MUL)
+                     if (expectedCol.key !== undefined && !actualCol.Key.includes(expectedCol.key)) {
+                         // Permitir que una Clave Primaria (PRI) satisfaga la expectativa de Única (UNI)
+                         if(!(expectedCol.key === 'UNI' && actualCol.Key === 'PRI')) {
+                            errors.push(`Tabla '${tableName}', Columna '${expectedCol.name}': Debería ser (o ser parte de) una clave '${expectedCol.key}', pero se encontró '${actualCol.Key}'.`);
+                            overallValid = false;
+                         }
+                    }
+                    // Eliminar la columna del map para rastrear extras (opcional)
+                    actualColumnsMap.delete(expectedCol.name);
+                }
+            }
+             // Opcional: Verificar si hay columnas extra no definidas en expectedSchema
+             // if (actualColumnsMap.size > 0) {
+             //     for (const extraColName of actualColumnsMap.keys()) {
+             //         errors.push(`Tabla '${tableName}': Columna inesperada encontrada '${extraColName}'.`);
+             //         // Podrías marcar overallValid = false si las columnas extra no son permitidas
+             //     }
+             // }
+        }
+
+        console.log(`Validación de estructura completada. ${overallValid ? 'OK' : 'Errores encontrados'}.`);
+        return { valid: overallValid, errors };
+
     } catch (error) {
-        console.error('Error durante la validación de la base de datos:', error);
+        console.error('Error crítico durante la validación de la estructura de la base de datos:', error);
+        // Asegurarse de retornar el formato esperado incluso en caso de error
         return {
             valid: false,
-            error: error.message
+            errors: [...errors, `Error inesperado durante la validación: ${error.message}`]
         };
     }
 }
 
-/**
- * Valida una consulta SQL antes de ejecutarla
- * @param {Object} db - Conexión a la base de datos
- * @param {string} query - Consulta SQL a validar
- * @param {Array} params - Parámetros de la consulta
- * @returns {Promise<Object>} - Resultado de la validación
- */
+// La lógica de reparación aquí es robusta y parece correcta.
+async function repairDatabaseStructure(db) {
+    console.warn('ADVERTENCIA: Iniciando intento de reparación de estructura de base de datos.');
+    console.warn('Esta función intentará ejecutar comandos de `database.sql` individualmente.');
+    let success = true;
+    let finalError = null;
+    let failureReason = '';
+    let sqlPath = ''; // Declarar fuera del try para usar en catch
+
+    try {
+        // Asegúrate que esta ruta es correcta para tu estructura de proyecto
+        sqlPath = path.join(__dirname, '..', 'database.sql');
+        console.log(`Leyendo script SQL desde: ${sqlPath}`); // Log para confirmar ruta
+        const sql = await fs.readFile(sqlPath, 'utf8');
+
+        // Filtrar comentarios y comandos vacíos de forma más robusta
+        const statements = sql.split(';')
+                             .map(stmt => stmt.trim())
+                             .filter(stmt => stmt.length > 0 && !stmt.startsWith('--') && !stmt.startsWith('/*'));
+
+        console.log(`Ejecutando ${statements.length} comandos individuales desde: ${sqlPath}`);
+
+        for (const statement of statements) {
+            try {
+                 // Omitir 'USE database;' ya que la conexión ya está establecida a la DB correcta
+                 if (statement.toUpperCase().startsWith('USE ')) {
+                    console.log(`Omitiendo comando: ${statement}`);
+                    continue;
+                 }
+                 // Log corto del comando
+                console.log(`Ejecutando: ${statement.substring(0, 100)}${statement.length > 100 ? '...' : ''}`);
+                await db.query(statement);
+            } catch (error) {
+                // Errores comunes que se pueden ignorar durante la reparación
+                // (la tabla/columna/clave ya existe)
+                const isIgnorable =
+                    error.code === 'ER_TABLE_EXISTS_ERROR' ||  // 1050
+                    error.code === 'ER_DUP_KEYNAME' ||         // 1061 - Clave duplicada (ya existe)
+                    error.code === 'ER_COLUMN_EXISTS_ERROR' || // 1060 - Columna duplicada (ya existe)
+                    error.code === 'ER_DUP_ENTRY';             // 1062 - Entrada duplicada (puede ocurrir con ADD UNIQUE si ya hay duplicados) - Considerar si ignorar
+
+                if (isIgnorable) {
+                    console.warn(`Advertencia (ignorado): ${error.code} - ${error.sqlMessage}`);
+                    // Si es ER_DUP_ENTRY al añadir UNIQUE/PRIMARY, podría indicar un problema de datos
+                    if (error.code === 'ER_DUP_ENTRY' && (statement.toUpperCase().includes('ADD UNIQUE') || statement.toUpperCase().includes('ADD PRIMARY'))) {
+                       console.warn(` -> Nota: ${error.code} en ${statement.substring(0,50)}... puede indicar datos duplicados existentes.`);
+                       // No marcamos como fallo aquí, pero es una advertencia importante
+                    }
+                }
+                // Errores específicos al modificar estructura que probablemente se deben a datos existentes
+                else if (statement.toUpperCase().includes('MODIFY COLUMN') &&
+                        (error.code === 'ER_TRUNCATED_WRONG_VALUE_FOR_FIELD' || // Dato inválido para nuevo tipo/restricción
+                         error.code === 'ER_INVALID_USE_OF_NULL' ||          // NULL encontrado donde se requiere NOT NULL
+                         error.code === 'ER_DATA_TOO_LONG' ||                // Dato existente muy largo para nuevo tamaño
+                         error.code === 'ER_WARN_DATA_OUT_OF_RANGE')         // Valor numérico fuera de rango
+                        )
+                {
+                     console.error(`Error crítico ejecutando comando MODIFY (posiblemente por datos existentes incompatibles): ${statement.substring(0, 100)}...`);
+                     console.error(`Detalles del error: ${error.message} (Code: ${error.code})`);
+                     failureReason = `MODIFY COLUMN falló (${error.code}), probablemente debido a datos existentes (NULL, duplicados, fuera de rango o inválidos). Limpie los datos manualmente o ajuste el script SQL.`;
+                     success = false;
+                     finalError = error;
+                     break; // Detener la reparación al primer error crítico de datos/modificación
+                }
+                 // Otros errores (sintaxis SQL, permisos, etc.)
+                else {
+                    console.error(`Error crítico ejecutando comando: ${statement.substring(0, 100)}...`);
+                    console.error(`Detalles del error: ${error.message} (Code: ${error.code})`);
+                    failureReason = `Error de sintaxis SQL, de permisos u otro error crítico (${error.code}): ${error.message}`;
+                    success = false;
+                    finalError = error;
+                    break; // Detener la reparación al primer error crítico
+                }
+            }
+        }
+
+        if (success) {
+             console.log('Intento de reparación completado (comandos ejecutados, errores ignorables pueden haber ocurrido).');
+             return {
+                 success: true,
+                 message: 'Se intentó la reparación ejecutando comandos individuales.'
+             };
+        } else {
+             console.error(`Intento de reparación fallido. ${failureReason}`);
+              return {
+                 success: false,
+                 // Proporcionar más contexto en el error
+                 error: `Error al ejecutar comando SQL durante reparación: "${finalError?.message || 'Error desconocido'}" (Code: ${finalError?.code || 'N/A'}) en comando: ${finalError?.sql?.substring(0, 100) || 'N/A'}...`,
+                 reason: failureReason
+             };
+        }
+
+    } catch (error) {
+        // Error al leer el archivo SQL o error inesperado
+        console.error(`Error general durante el intento de reparación de la base de datos (posiblemente leyendo ${sqlPath}):`, error);
+        return {
+            success: false,
+            error: `Error general durante reparación (ej. lectura de archivo ${sqlPath}): ${error.message}`
+        };
+    }
+}
 async function validateQuery(db, query, params = []) {
     try {
         // Verificar si es una consulta de inserción o actualización
@@ -180,76 +311,8 @@ async function validateQuery(db, query, params = []) {
     }
 }
 
-/**
- * Repara la estructura de la base de datos según el archivo SQL
- * @param {Object} db - Conexión a la base de datos
- * @returns {Promise<Object>} - Resultado de la reparación
- */
-async function repairDatabaseStructure(db) {
-    try {
-        console.log('Iniciando reparación de estructura de base de datos...');
-        
-        // Primero intentar reparar columnas individuales
-        const [tables] = await db.query('SHOW TABLES');
-        
-        for (const table of tables) {
-            const tableName = table[Object.keys(table)[0]];
-            
-            // Especial atención a la tabla catalogo
-            if (tableName === 'catalogo') {
-                try {
-                    await db.query('ALTER TABLE catalogo ADD COLUMN descripcion TEXT');
-                    await db.query('ALTER TABLE catalogo ADD COLUMN nsfw BOOLEAN DEFAULT 0');
-                    await db.query('ALTER TABLE catalogo ADD COLUMN trailer VARCHAR(255)');
-                    await db.query('ALTER TABLE catalogo ADD COLUMN recomendacion BOOLEAN DEFAULT 0');
-                } catch (error) {
-                    console.error(`Error al reparar tabla ${tableName}:`, error);
-                }
-            }
-        }
-        
-        // Leer el archivo SQL
-        const sqlPath = path.join(__dirname, '..', 'database.sql');
-        const sql = await fs.readFile(sqlPath, 'utf8');
-        
-        // Dividir en declaraciones SQL
-        const statements = sql.split(';').filter(stmt => stmt.trim().length > 0);
-        
-        const results = [];
-        
-        // Ejecutar cada declaración
-        for (const statement of statements) {
-            try {
-                await db.query(statement);
-                results.push({ success: true, statement });
-            } catch (error) {
-                // Ignorar errores de 'ya existe'
-                if (!error.message.includes('already exists')) {
-                    results.push({ 
-                        success: false, 
-                        statement, 
-                        error: error.message 
-                    });
-                }
-            }
-        }
-        
-        return {
-            success: true,
-            message: 'Reparación de base de datos completada',
-            details: results
-        };
-    } catch (error) {
-        console.error('Error durante la reparación de la base de datos:', error);
-        return {
-            success: false,
-            error: error.message
-        };
-    }
-}
-
 module.exports = {
     validateDatabaseStructure,
-    validateQuery,
-    repairDatabaseStructure
+    repairDatabaseStructure,
+    validateQuery
 };

@@ -12,6 +12,7 @@ const stateObject = {
   "finalizado": 2,
   "proximamente": 3,
 }
+const miTabla = document.getElementById("miTabla")
 const dataSample = {
     "idCatalogo": 1,// "number" unico  ya que lo genera el servidor// o solo se utiliza para editar
     "nombreCatalogo": "nombre",// "string"
@@ -159,23 +160,8 @@ async function loadAnimes() {
   try {
       const response = await fetch('http://localhost:3001/api/anime');
       const animes = await response.json();
-      
-      const tableBody = document.getElementById('animeTable');
-      tableBody.innerHTML = '';
-      
-      animes.forEach(anime => {
-          const row = document.createElement('tr');
-          row.innerHTML = `
-              <td>${anime.id}</td>
-              <td>${anime.nombre}</td>
-              <td>${anime.imagen_fondo ? `<img src="${anime.imagen_fondo}" class="w-16 h-16 object-cover">` : 'Sin imagen'}</td>
-              <td>
-                  <button class="btn btn-sm btn-info mr-2" data-id="${anime.id}">Editar</button>
-                  <button class="btn btn-sm btn-error" data-id="${anime.id}">Eliminar</button>
-              </td>
-          `;
-          tableBody.appendChild(row);
-      });
+      miTabla.setData(animes,["id","nombre"])
+
   } catch (error) {
       console.error('Error al cargar animes:', error);
   }
@@ -278,21 +264,16 @@ async function deleteAnime(id) {
 }
 
 function setupTableEventListeners() {
-  const table = document.getElementById('animeTable');
-  if (table) {
-    table.addEventListener('click', (e) => {
-      const editBtn = e.target.closest('.btn-info');
-      const deleteBtn = e.target.closest('.btn-error');
-      
-      if (editBtn) {
-        const id = editBtn.getAttribute('data-id');
-        editAnime(id);
-      } else if (deleteBtn) {
-        const id = deleteBtn.getAttribute('data-id');
-        deleteAnime(id);
-      }
-    });
-  }
+  miTabla.addEventListener('edit-item', (event) => {
+      const item = event.detail; // El objeto completo está en event.detail
+      console.log(item)
+      editAnime(item.id)
+  });
+  miTabla.addEventListener('delete-item', (event) => {
+    const DeleteItem = event.detail;
+    console.log('Evento ELIMINAR recibido:', DeleteItem);
+    deleteAnime(DeleteItem.id)
+  });
 }
 
 loadAnimes();

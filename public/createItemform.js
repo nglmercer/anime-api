@@ -9,7 +9,8 @@ import {
   saveSeason,
   getSeason,
   deleteAnime,
-  deleteSeason
+  deleteSeason,
+  getEpisodesColumn
 } from './fetch.js';
 /**
  * Initialize the anime form
@@ -322,10 +323,8 @@ function setupTableEventListeners() {
 
   const botones = [
     { action: 'add', text: 'Añadir', icon: '➕' }, // Emoji como icono
-    { action: 'save', text: 'Guardar', icon: '💾' }, // Emoji
-      // Ejemplo si usaras FontAwesome (necesitarías el CSS de FontAwesome)
+    // Ejemplo si usaras FontAwesome (necesitarías el CSS de FontAwesome)
     // { action: 'delete', text: 'Borrar', icon: '<i class="fas fa-trash"></i>' },
-    { action: 'delete', text: 'Borrar', icon: '🗑️' },
     { action: 'settings', text: 'Ajustes', icon: '⚙️' }
   ];
 
@@ -362,6 +361,14 @@ function setupTableEventListeners() {
     console.log('Evento ELIMINAR recibido:', DeleteItem);
     deleteSeason(DeleteItem, ()=>{
     })
+  });
+  secondTabla.addAction('select-column', 'select', 'select-column');
+  secondTabla.addEventListener('select-column',async (event) => {
+    const selectColumn = event.detail;
+    miBarra.data = selectColumn;
+    const result = await getEpisodesColumn(selectColumn);
+    console.log("result",result);
+    thirdTabla.setData(result,["animeId","idTemporada","numeroTemporada","tituloCapitulo","descripcionCapitulo","imagenCapitulo","pathCapitulo","duracionMinutos","meGustas","noMeGustas","reproducciones"])
   });
 }
 

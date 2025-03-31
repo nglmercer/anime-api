@@ -71,7 +71,7 @@ async function saveAnime(anime, cb = () => {}) {
     }
   
   }
-  async function getSeason(data){
+  async function getSeason(data, cb = () => {}){
     try {
       const response = await fetch(BaseUrl +'/api/anime/'+data.id+"/temporadas", {
         method: 'GET',
@@ -80,7 +80,25 @@ async function saveAnime(anime, cb = () => {}) {
         },
       });
       const column = await response.json();
+      if (cb) cb();
       console.log(column);
+      return column;
+    } catch (error) {
+      console.error('Error al obtener columna:', error);
+    }
+  }
+  async function getEpisodesColumn(data, cb = () => {}) {
+    const id = data.animeId;
+    try {
+      const response = await fetch(BaseUrl +'/api/anime/'+id+"/temporadas/"+data.idTemporada+"/capitulos", {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }); 
+      const column = await response.json();
+      console.log(column);
+      if (cb) cb();
       return column;
     } catch (error) {
       console.error('Error al obtener columna:', error);
@@ -149,5 +167,6 @@ async function saveAnime(anime, cb = () => {}) {
     saveSeason,
     getSeason,
     deleteAnime,
-    deleteSeason
+    deleteSeason,
+    getEpisodesColumn
   }

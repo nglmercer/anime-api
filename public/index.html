@@ -9,6 +9,7 @@
 </head>
 <body class="bg-gray-100">
     <div id="modal-form-catalogo"></div>
+    <div id="modal-form-season"></div>
     <div class="container mx-auto p-4">
         <h1 class="text-3xl font-bold mb-6">Catálogo de Anime</h1>
         
@@ -16,13 +17,17 @@
         <div class="overflow-x-auto">
             <object-table id="miTabla"></object-table>
         </div>
-        
+        <icon-button-bar id="mi-barra"></icon-button-bar>
+        <div class="overflow-x-auto">
+            <object-table id="secondTabla"></object-table>
+        </div>
         <!-- Botón para agregar nuevo anime -->
         <button class="btn btn-primary mt-4" id="abrir-modal-catalogo-btn">Agregar Anime</button>
         
     </div>
     <script src="./components/table.js"></script>
     <script src="./components/modal.js"></script>
+    <script src="./components/buttonbar.js"></script>
     <script type="module" src="./main.js"></script>
 </body>
 </html>

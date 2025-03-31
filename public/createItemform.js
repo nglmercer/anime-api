@@ -3,6 +3,13 @@
  * This file creates a form for managing anime triggers using the FormGenerator class
  */
 import { FormGenerator } from './components/formGenerator.js';
+import {
+  saveAnime,
+  editAnime,
+  postSelectedColumn,
+  getSelectedColumn,
+  deleteAnime
+} from './fetch.js';
 /**
  * Initialize the anime form
  * @param {string} containerId - ID of the container element to inject the form
@@ -97,7 +104,9 @@ function initanimeForm(containerId) {
     savecallback: () => {
       const newdata = getModaldata();
       console.log('Save clicked', newdata);
-      saveAnime(newdata);
+      saveAnime(newdata, ()=>{
+        loadAnimes();
+      });
     }
 
   };
@@ -166,116 +175,166 @@ async function loadAnimes() {
       console.error('Error al cargar animes:', error);
   }
 }
-
-
-async function saveAnime(anime) {
-  //transformar descripcionCatalogo de array a string
-  //estadoCatalogo to number
-  const sendData = {
-    ...anime, // Copia todas las propiedades del objeto original
-    descripcionCatalogo: Array.isArray(anime.descripcionCatalogo) 
-      ? anime.descripcionCatalogo.join(' ') 
-      : anime.descripcionCatalogo, // Se asegura de que sea string
-    nsfwCatalogo: anime.nsfwCatalogo ? 1 : 0,
-    recomendacionCatalogo: anime.recomendacionCatalogo ? 1 : 0,
-    estadoCatalogo: parseInt(anime.estadoCatalogo),
-  };  
-
-  try {
-      const url = sendData.idCatalogo ? `http://localhost:3001/api/anime/${sendData.idCatalogo}` : 'http://localhost:3001/api/anime';
-      const method =  sendData.idCatalogo ? 'PUT' : 'POST';   
-      console.log("saveAnime", anime, sendData, url, method);
-      const response = await fetch(url, {
-          method,
-          headers: {
-              'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(sendData),
-      });
-      
-      if (response.ok) {
-          loadAnimes();
-      } else {
-          console.error('Error al guardar anime:', await response.text());
-      }
-  } catch (error) {
-      console.error('Error al guardar anime:', error);
-  }
-}
-
-// Función para eliminar un anime
-async function editAnime(id) {
-  try {
-    const response = await fetch(`http://localhost:3001/api/anime/${id}`);
-    const anime = await response.json();
-    
-    // Aquí deberías implementar la lógica para editar el anime
-    const editdata ={
-      "idCatalogo": anime.id,
-      "nombreCatalogo": anime.nombre,
-      "estadoCatalogo": anime.estado,
-      "imagenFondoCatalogo": anime.imagen_fondo,
-      "descripcionCatalogo": anime.descripcion,
-      "nsfwCatalogo": anime.nsfw,
-      "trailerCatalogo": anime.trailer,
-      "id": anime.id,
-    }
-    console.log('Editando anime:', anime, editdata);
-    const editform =  initanimeForm("modal-form-catalogo");
-    editform.setFormData(editdata);
-  } catch (error) {
-    console.error('Error al cargar anime para editar:', error);
-  }
-
-}
-/**
+/** 
 descripcion: "eqweqwe"
-​
 estado: 3
-​
 id: 2
-​
 imagen_fondo: "qweqw"
-​
 nombre: "qweqw"
-​
 nsfw: 1
-​
 recomendacion: 0
-​
 trailer: "qweqweqwe"
- */
-async function deleteAnime(id) {
-  if (confirm('¿Estás seguro de eliminar este anime?')) {
-      try {
-          const response = await fetch(`http://localhost:3001/api/anime/${id}`, {
-              method: 'DELETE'
-          });
-          
-          if (response.ok) {
-              loadAnimes();
-          } else {
-              console.error('Error al eliminar anime:', await response.text());
-          }
-      } catch (error) {
-          console.error('Error al eliminar anime:', error);
+ */// /anime/:Id
+/*{ numero, nombre, descripcion, portada, nsfw = false }*/ ///anime/:animeId/temporadas
+const secondRequiredFields = [
+  "nombre",
+  "numero",
+  "portada",
+  "descripcion",
+  "nsfw",
+]
+function initSeasonForm(containerId) {
+  // Define the form configuration
+  const seasonFormConfig = {
+    formId: 'season',
+    modalId: 'seasonModal',
+    fields: [
+      {
+        id: 'season_name',
+        name: 'nombre',
+        label: 'Nombre',
+        type: 'text',
+        placeholder: '{{nombre}}',
+        required: true
+      },
+      {
+        id: 'season_num',
+        name: 'numero',
+        label: 'Número',
+        type: 'number',
+        placeholder: '{{numero}}',
+        required: true
+      },
+      {
+        id: 'season_portada',
+        name: 'portada',
+        label: 'Portada',
+        type: 'text',
+        placeholder: '{{portada}}',
+        required: true
+      },
+      {
+        id: 'season_descripcion',
+        name: 'descripcion',
+        label: 'Descripción',
+        type: 'textarea',
+        placeholder: '{{descripcion}}',
+        required: true
+      },
+      {
+        id: 'season_nsfw',
+        name: 'nsfw',
+        label: 'NSFW',
+        type: 'checkbox',
+        placeholder: '{{nsfw}}',
+        required: false
       }
-  }
+    ],
+    validation: {
+      conditionalFields: true,
+      fieldToCheck: secondRequiredFields,
+      valueToCheck: 'any',
+      excludeFields: ['id']
+    },
+    savecallback: () => {
+      const newdata = getseasonModaldata();
+      console.log('Save clicked', newdata);
+      postSelectedColumn(newdata, ()=>{
+      });
+    }
+
+  };
+  const seasonForm = new FormGenerator(seasonFormConfig);
+  seasonForm.init(containerId);
+  return seasonForm;
 }
+function getseasonModaldata(getelements = false) {
+  let allvalues = [];
+  const season_name = document.querySelector('#season_name');
+  const season_num = document.querySelector('#season_num');
+  const season_portada = document.querySelector('#season_portada');
+  const season_descripcion = document.querySelector('#season_descripcion');
+  const season_nsfw = document.querySelector('#season_nsfw');
+  const season_id = document.querySelector('#form_id');
+  const formelements = {
+    "id": season_id,
+    'nombre': season_name,
+    'numero': season_num,
+    'portada': season_portada,
+    'descripcion': season_descripcion,
+    'nsfw': season_nsfw,
+  }
+  Object.keys(formelements).forEach(key => {
+    allvalues[key] = formelements[key].getInputValues();
+    // format form with resetInputValues
+    //  formelements[key].resetInputValues();
+  });
+  //console.log(formelements);
+  if (getelements) return formelements;
+  return { ...allvalues };
+}
+const miBarra = document.getElementById('mi-barra');
 
 function setupTableEventListeners() {
+  const secondTabla = document.getElementById("secondTabla");
   miTabla.addEventListener('edit-item', (event) => {
       const item = event.detail; // El objeto completo está en event.detail
       console.log(item)
-      editAnime(item.id)
+      const editform =  initanimeForm("modal-form-catalogo");
+      editAnime(item.id, editform)
   });
   miTabla.addEventListener('delete-item', (event) => {
     const DeleteItem = event.detail;
     console.log('Evento ELIMINAR recibido:', DeleteItem);
-    deleteAnime(DeleteItem.id)
+    deleteAnime(DeleteItem.id, ()=>{
+      loadAnimes();
+    })
+  });
+  miTabla.addAction('select-column', 'select', 'select-column');
+  miTabla.addEventListener('select-column',async (event) => {
+    const selectColumn = event.detail;
+    miBarra.data = selectColumn;
+    const result = await getSelectedColumn(selectColumn);
+    console.log("result",result);
+    secondTabla.setData(result,["animeId","idTemporada","nombreTemporada"])
+  });
+
+  const botones = [
+    { action: 'add', text: 'Añadir', icon: '➕' }, // Emoji como icono
+    { action: 'save', text: 'Guardar', icon: '💾' }, // Emoji
+      // Ejemplo si usaras FontAwesome (necesitarías el CSS de FontAwesome)
+    // { action: 'delete', text: 'Borrar', icon: '<i class="fas fa-trash"></i>' },
+    { action: 'delete', text: 'Borrar', icon: '🗑️' },
+    { action: 'settings', text: 'Ajustes', icon: '⚙️' }
+  ];
+
+  // Asignar los botones al componente
+  miBarra.buttons = botones;
+  // Escuchar el evento 'action' que emite el componente
+  miBarra.addEventListener('action', (event) => {
+      const { action, data } = event.detail;
+      console.log('Evento "action" recibido:', event.detail);
+      if (action === 'add' && data) {
+          console.log('Botón "Añadir" ha sido presionado con datos:', data);
+          const modal =  initSeasonForm("modal-form-season");
+          modal.setFormData({id: data.id});
+      }
   });
 }
 
 loadAnimes();
 setupTableEventListeners();
-export { initanimeForm};
+
+// Configurar los botones que queremos mostrar
+
+export { initanimeForm, initSeasonForm};

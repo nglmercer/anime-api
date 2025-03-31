@@ -6,6 +6,7 @@ class ObjectTable extends HTMLElement {
         // Datos internos
         this._data = [];
         this._keys = [];
+        this._customActions = []; // Array para almacenar definiciones de acciones personalizadas
 
         // Crear Shadow DOM para encapsulación (buena práctica)
         this.attachShadow({ mode: 'open' });
@@ -24,7 +25,9 @@ class ObjectTable extends HTMLElement {
         // Añadir listener para manejar clicks en botones (event delegation)
         this._tableContainer.addEventListener('click', this._handleActionClick.bind(this));
     }
+
     getStyles(){
+        // Añadimos un estilo genérico por si no se especifica clase
         return /*css*/ `
             :host {
                 display: block; /* Por defecto es inline */
@@ -44,9 +47,11 @@ class ObjectTable extends HTMLElement {
                 text-align: left;
             }
             th {
-                text-transform: capitalize; /* Poner primera letra en mayúscula */
+                /* Poner primera letra en mayúscula (siempre que no sea todo mayúsculas) */
+                text-transform: capitalize;
             }
             tr:hover {
+                 background-color: rgb(1, 1, 1);
             }
             button {
                 padding: 5px 10px;
@@ -55,21 +60,30 @@ class ObjectTable extends HTMLElement {
                 border: 1px solid #ccc;
                 border-radius: 3px;
             }
+            button:hover {
+                filter: brightness(55%);
+            }
             button.edit-btn {
-                background-color: # CCE5FF; /* Azul claro */
+                background-color: #CCE5FF; /* Azul claro */
                 border-color: #b8daff;
+                color: #004085;
             }
             button.delete-btn {
                 background-color: #F8D7DA; /* Rojo claro */
                 color: #721c24;
                 border-color: #f5c6cb;
             }
+            /* Puedes añadir aquí estilos para clases de botones personalizados si quieres */
+            /* .mi-clase-personalizada { ... } */
+
             .actions-cell {
                 white-space: nowrap; /* Evita que los botones se separen en líneas */
-                 width: 1%; /* Intenta darle el mínimo ancho necesario */
+                width: 1%; /* Intenta darle el mínimo ancho necesario */
+                text-align: center; /* Centrar botones en la celda */
             }
-        `
+        `;
     }
+
     // --- MÉTODOS PÚBLICOS ---
 
     /**
@@ -78,13 +92,11 @@ class ObjectTable extends HTMLElement {
      * @param {Array<string>} keys - Array de strings con las claves a mostrar y su orden.
      */
     setData(data = [], keys = []) {
-        // Validar entrada básica (opcional pero recomendado)
         if (!Array.isArray(data) || !Array.isArray(keys)) {
             console.error('ObjectTable: data y keys deben ser arrays.');
             this._data = [];
             this._keys = [];
         } else {
-            // Clonar para evitar mutaciones externas inesperadas (opcional)
             this._data = [...data];
             this._keys = [...keys];
         }
@@ -105,10 +117,42 @@ class ObjectTable extends HTMLElement {
     }
 
     /**
+     * Define una acción personalizada que se mostrará como un botón en cada fila.
+     * Llama a este método ANTES de llamar a setData o render para que se incluya.
+     * @param {string} actionName - El identificador único de la acción (usado en dataset.action y nombre del evento).
+     * @param {string} buttonLabel - El texto que mostrará el botón.
+     * @param {string} [cssClass=''] - Una clase CSS opcional para aplicar al botón.
+     */
+    addAction(actionName, buttonLabel, cssClass = '') {
+        if (typeof actionName !== 'string' || !actionName) {
+            console.error('ObjectTable: actionName debe ser un string no vacío.');
+            return;
+        }
+        if (typeof buttonLabel !== 'string') {
+            console.error('ObjectTable: buttonLabel debe ser un string.');
+            return;
+        }
+        // Evitar añadir la misma acción múltiples veces (opcional)
+        if (this._customActions.some(action => action.name === actionName)) {
+             console.warn(`ObjectTable: La acción "${actionName}" ya ha sido añadida.`);
+             return;
+        }
+        // Añadir definición de la acción
+        this._customActions.push({
+            name: actionName,
+            label: buttonLabel,
+            className: cssClass || '' // Asegurar que sea string
+        });
+        // Opcional: Re-renderizar si ya hay datos
+        // if (this._data.length > 0) {
+        //     this.render();
+        // }
+    }
+
+    /**
      * Renderiza la tabla completa basada en los datos y claves actuales.
      */
     render() {
-        // Limpiar contenido anterior
         this._tableContainer.innerHTML = '';
 
         if (!this._data || this._data.length === 0 || !this._keys || this._keys.length === 0) {
@@ -124,10 +168,9 @@ class ObjectTable extends HTMLElement {
         const headerRow = document.createElement('tr');
         this._keys.forEach(key => {
             const th = document.createElement('th');
-            th.textContent = key; // Usar la clave como texto de cabecera
+            th.textContent = key;
             headerRow.appendChild(th);
         });
-        // Añadir cabecera para columna de acciones
         const thActions = document.createElement('th');
         thActions.textContent = 'Acciones';
         headerRow.appendChild(thActions);
@@ -136,39 +179,44 @@ class ObjectTable extends HTMLElement {
         // --- Crear Cuerpo (tbody) ---
         this._data.forEach((item, index) => {
             const tr = document.createElement('tr');
-
-            // Guardar referencia al objeto completo en la fila (muy importante para los eventos)
-            // Usamos un símbolo o una propiedad no estándar para evitar colisiones
             tr._dataItem = item;
-            // Alternativa: usar data-attributes si prefieres (requeriría JSON.stringify/parse)
-            // tr.dataset.itemIndex = index; // Podría ser útil si necesitas el índice
 
-            // Crear celdas de datos según las keys
             this._keys.forEach(key => {
                 const td = document.createElement('td');
-                // Acceder al valor, mostrar '' si es undefined o null
                 td.textContent = (item[key] !== undefined && item[key] !== null) ? item[key] : '';
                 tr.appendChild(td);
             });
 
             // Crear celda de acciones
             const tdActions = document.createElement('td');
-            tdActions.classList.add('actions-cell'); // Añadir clase para estilos
+            tdActions.classList.add('actions-cell');
 
+            // Botón Editar (estándar)
             const editButton = document.createElement('button');
             editButton.textContent = 'Editar';
             editButton.classList.add('edit-btn');
-            editButton.dataset.action = 'edit'; // Identificador para el handler
+            editButton.dataset.action = 'edit'; // Acción especial para evento 'edit-item'
+            tdActions.appendChild(editButton);
 
+            // Botón Eliminar (estándar)
             const deleteButton = document.createElement('button');
             deleteButton.textContent = 'Eliminar';
             deleteButton.classList.add('delete-btn');
-            deleteButton.dataset.action = 'delete'; // Identificador para el handler
-
-            tdActions.appendChild(editButton);
+            deleteButton.dataset.action = 'delete'; // Acción especial para evento 'delete-item'
             tdActions.appendChild(deleteButton);
-            tr.appendChild(tdActions);
 
+            // *** Añadir botones de acciones personalizadas ***
+            this._customActions.forEach(actionDef => {
+                const customButton = document.createElement('button');
+                customButton.textContent = actionDef.label;
+                customButton.dataset.action = actionDef.name; // Usar el nombre de la acción
+                if (actionDef.className) {
+                    customButton.classList.add(...actionDef.className.split(' ').filter(Boolean)); // Añadir clases CSS (soporta múltiples separadas por espacio)
+                }
+                tdActions.appendChild(customButton);
+            });
+
+            tr.appendChild(tdActions);
             tbody.appendChild(tr);
         });
 
@@ -186,76 +234,59 @@ class ObjectTable extends HTMLElement {
     _handleActionClick(event) {
         const clickedElement = event.target;
 
-        // Verificar si el click fue en un botón de acción
         if (clickedElement.tagName === 'BUTTON' && clickedElement.dataset.action) {
             const action = clickedElement.dataset.action;
-            // Encontrar la fila (tr) padre más cercana
             const row = clickedElement.closest('tr');
 
             if (row && row._dataItem) {
-                const itemData = row._dataItem; // Obtener el objeto asociado a la fila
+                const itemData = row._dataItem;
 
+                // Determinar el nombre del evento
+                let eventName;
                 if (action === 'edit') {
-                    // Emitir evento 'edit-item' con el objeto completo
-                    this.dispatchEvent(new CustomEvent('edit-item', {
-                        detail: itemData, // El objeto completo va en 'detail'
-                        bubbles: true, // Permite que el evento suba por el DOM
-                        composed: true // Permite que el evento cruce los límites del Shadow DOM
-                    }));
+                    eventName = 'edit-item'; // Evento específico para editar
                 } else if (action === 'delete') {
-                    // Emitir evento 'delete-item' con el objeto completo
-                    this.dispatchEvent(new CustomEvent('delete-item', {
-                        detail: itemData,
-                        bubbles: true,
-                        composed: true
-                    }));
-                    // NOTA: El componente NO elimina la fila por sí mismo.
-                    // La lógica que escucha el evento 'delete-item' debe
-                    // actualizar la fuente de datos y luego llamar a setData()
-                    // en este componente para reflejar el cambio.
+                    eventName = 'delete-item'; // Evento específico para borrar
+                } else {
+                    eventName = action; // Usar el nombre de la acción directamente como nombre del evento
                 }
-            } else {
-                this.dispatchEvent(new CustomEvent(action, {
-                    detail: itemData,
-                    bubbles: true,
-                    composed: true
+
+                // Emitir el evento apropiado
+                this.dispatchEvent(new CustomEvent(eventName, {
+                    detail: itemData, // El objeto completo va en 'detail'
+                    bubbles: true,    // Permite que el evento suba por el DOM
+                    composed: true    // Permite que el evento cruce los límites del Shadow DOM
                 }));
+
+                 // NOTA IMPORTANTE sobre 'delete-item':
+                 // El componente NO elimina la fila por sí mismo al recibir 'delete'.
+                 // La lógica externa que escucha 'delete-item' debe actualizar la fuente
+                 // de datos y luego llamar a setData() en este componente para reflejar
+                 // el cambio visualmente. Lo mismo aplica a cualquier otra acción
+                 // que modifique los datos.
+
+            } else if (row) {
+                 console.warn("ObjectTable: Botón de acción clickeado pero no se encontró _dataItem en la fila.", row);
             }
         }
     }
 
-    // --- CICLO DE VIDA (Opcional pero útil) ---
+    // --- CICLO DE VIDA ---
 
     connectedCallback() {
-        // Se llama cuando el elemento se añade al DOM.
-        // Podrías hacer una renderización inicial aquí si los datos
-        // se pasaran por atributos (aunque para arrays/objetos es mejor usar métodos).
-        // console.log('ObjectTable conectado al DOM');
-        // Podríamos llamar a this.render() aquí si tuviéramos datos iniciales
-        // de alguna otra forma (ej: atributos parseados).
         if (!this.shadowRoot.contains(this._tableContainer)) {
-             // Asegurarse que todo esté en el shadowRoot si algo falla en el constructor
              this.shadowRoot.appendChild(this._tableContainer);
         }
-         // Render inicial si no hay datos (mostrará mensaje por defecto)
-         if(this._data.length === 0 && this._keys.length === 0){
-             this.render();
-         }
+        if(this._data.length === 0 && this._keys.length === 0 && this.isConnected){
+             this.render(); // Render inicial si no hay datos
+        }
     }
 
     disconnectedCallback() {
-        // Se llama cuando el elemento se elimina del DOM.
-        // Bueno para limpiar listeners si no se usó event delegation en el shadowRoot.
-        // En este caso, el listener está en _tableContainer DENTRO del shadowRoot,
-        // por lo que se limpiará automáticamente al quitar el elemento.
-        // console.log('ObjectTable desconectado del DOM');
+        // Limpieza automática por usar event listener en el shadow root
     }
 
-    // Podrías observar atributos si quisieras configurar keys/data iniciales vía HTML,
-    // pero es más complejo para arrays/objetos.
-    // static get observedAttributes() { return ['keys-json', 'data-json']; }
-    // attributeChangedCallback(name, oldValue, newValue) { ... }
 }
 
-// Definir el custom element para que el navegador lo reconozca
+// Definir el custom element
 customElements.define('object-table', ObjectTable);

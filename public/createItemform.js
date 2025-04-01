@@ -10,7 +10,8 @@ import {
   getSeason,
   deleteAnime,
   deleteSeason,
-  getEpisodesColumn
+  getEpisodesColumn,
+  saveEpisode
 } from './fetch.js';
 /**
  * Initialize the anime form
@@ -242,8 +243,8 @@ function initSeasonForm(containerId) {
         required: false
       },
       {
-        id: 'idTemporada',
-        name: 'idTemporada',
+        id: 'temporadaId',
+        name: 'temporadaId',
         label: 'Temporada ID',
         type: 'text',
         placeholder: '{{id}}',
@@ -276,7 +277,7 @@ function getseasonModaldata(getelements = false) {
   const season_descripcion = document.querySelector('#season_descripcion');
   const season_nsfw = document.querySelector('#season_nsfw');
   const anime_id = document.querySelector('#form_id');
-  const season_id = document.querySelector('#idTemporada');
+  const season_id = document.querySelector('#temporadaId');
   const formelements = {
     "id": anime_id,
     'nombre': season_name,
@@ -284,7 +285,7 @@ function getseasonModaldata(getelements = false) {
     'portada': season_portada,
     'descripcion': season_descripcion,
     'nsfw': season_nsfw,
-    'idTemporada': season_id,
+    'temporadaId': season_id,
   }
   Object.keys(formelements).forEach(key => {
     allvalues[key] = formelements[key].getInputValues();
@@ -295,10 +296,156 @@ function getseasonModaldata(getelements = false) {
   if (getelements) return formelements;
   return { ...allvalues };
 }
-const miBarra = document.getElementById('mi-barra');
+const episodeRequiredFields = [
+  "numero",
+  "titulo",
+  "descripcion",
+  "imagen",
+  "path",
+];
 
+/**
+ * Initializes the form for creating/editing an Episode.
+ * @param {string} containerId - The ID of the HTML element where the form should be rendered.
+ * @returns {FormGenerator} The initialized form generator instance.
+ */
+function initEpisodeForm(containerId) {
+  // Define the form configuration for an Episode
+  const episodeFormConfig = {
+    // Unique IDs for the form and its modal
+    formId: 'episode',
+    modalId: 'episodeModal',
+
+    // Define the fields for the episode form
+    fields: [
+      {
+        id: 'numeroCapitulo',        // Unique HTML ID for the element
+        name: 'numero',              // Corresponds to the data property name
+        label: 'Número del Episodio',// User-friendly label
+        type: 'number',              // Input type
+        placeholder: '{{numero}}',   // Placeholder, possibly for template filling
+        required: true               // Is this field mandatory?
+      },
+      {
+        id: 'tituloCapitulo',
+        name: 'titulo',
+        label: 'Título del Episodio',
+        type: 'text',
+        placeholder: '{{titulo}}',
+        required: true
+      },
+      {
+        id: 'descripcionCapitulo',
+        name: 'descripcion',
+        label: 'Descripción',
+        type: 'textarea',            // Use textarea for potentially longer descriptions
+        placeholder: '{{descripcion}}',
+        required: true
+      },
+      {
+        id: 'imagenCapitulo',
+        name: 'imagen',
+        label: 'Imagen (URL)',      // Specify URL might be helpful
+        type: 'text',               // Assuming URL input
+        placeholder: '{{imagen}}',
+        required: true
+      },
+      {
+        id: 'pathCapitulo',
+        name: 'path',
+        label: 'Ruta/URL del Video', // Specify URL/Path might be helpful
+        type: 'text',               // Assuming URL or path input
+        placeholder: '{{path}}',
+        required: true
+      },
+      // Optional: Add an ID field if you need to handle updates
+      {
+          id: 'animeId',
+          name: 'animeId',
+          label: 'animeId',
+          type: 'number', // Could be 'hidden' if your FormGenerator supports it
+          placeholder: '{{id}}',
+          required: false // Usually not required for creation, needed for updates
+      },
+      {
+          id: 'temporadaId',
+          name: 'temporadaId',
+          label: 'temporadaId',
+          type: 'number', // Could be 'hidden' if your FormGenerator supports it
+          placeholder: '{{id}}',
+          required: false // Usually not required for creation, needed for updates
+      }
+    ],
+
+    // Validation configuration, similar to your examples
+    validation: {
+      conditionalFields: true,         // Keep consistency
+      fieldToCheck: episodeRequiredFields, // Use the defined required fields
+      valueToCheck: 'any',             // Keep consistency
+      excludeFields: ['id']            // Exclude the ID from this basic check
+    },
+
+    // Callback function when the save button is clicked
+    savecallback: () => {
+      // Assume a function exists to retrieve data from this specific modal
+      // You might need to create getEpisodeModalData() similar to your others
+      const episodeData = getEpisodeModalData(); // You'll need to implement this function
+      console.log('Save Episode clicked', episodeData);
+
+      // Assume a function exists to save/update the episode data
+      // You'll need to implement saveEpisode()
+      saveEpisode(episodeData, () => {
+        // Optional callback after save, e.g., close modal, refresh list
+        console.log('Episode save initiated. Implement post-save logic (e.g., refresh).');
+        // Example: maybe reload episodes for the current season
+        // if (typeof loadEpisodes === 'function') {
+        //    loadEpisodes(currentSeasonId); // Assuming you have currentSeasonId available
+        // }
+      });
+    }
+  };
+
+  // Create the form generator instance with the configuration
+  const episodeForm = new FormGenerator(episodeFormConfig);
+  // Initialize the form in the specified container
+  episodeForm.init(containerId);
+  // Return the instance for potential further interaction
+  return episodeForm;
+}
+function getEpisodeModalData(getelements = false) {
+  let allvalues = [];
+  const numeroCapitulo = document.querySelector('#numeroCapitulo');
+  const tituloCapitulo = document.querySelector('#tituloCapitulo');
+  const descripcionCapitulo = document.querySelector('#descripcionCapitulo');
+  const imagenCapitulo = document.querySelector('#imagenCapitulo');
+  const pathCapitulo = document.querySelector('#pathCapitulo');
+  const animeId = document.querySelector('#animeId');
+  const temporadaId = document.querySelector('#temporadaId');
+  const idCapitulo = document.querySelector('#form_id');
+  const formelements = {
+    "animeId": animeId,
+    "temporadaId": temporadaId,
+    'numero': numeroCapitulo,
+    'titulo': tituloCapitulo,
+    'descripcion': descripcionCapitulo,
+    'imagen': imagenCapitulo,
+    'path': pathCapitulo,
+    'idCapitulo': idCapitulo,
+  }
+  Object.keys(formelements).forEach(key => {
+    allvalues[key] = formelements[key].getInputValues();
+    // format form with resetInputValues
+    //  formelements[key].resetInputValues();
+  });
+  //console.log(formelements);
+  if (getelements) return formelements;
+  return {...allvalues };
+}
+const miBarra = document.getElementById('mi-barra');
+const second_bar = document.getElementById('second_bar');
 function setupTableEventListeners() {
   const secondTabla = document.getElementById("secondTabla");
+  const thirdTabla = document.getElementById("thirdTabla");
   miTabla.addEventListener('edit-item', (event) => {
       const item = event.detail; // El objeto completo está en event.detail
       console.log(item)
@@ -318,7 +465,7 @@ function setupTableEventListeners() {
     miBarra.data = selectColumn;
     const result = await getSeason(selectColumn);
     console.log("result",result);
-    secondTabla.setData(result,["animeId","idTemporada","nombreTemporada"])
+    secondTabla.setData(result,["animeId","temporadaId","nombreTemporada"])
   });
 
   const botones = [
@@ -365,10 +512,36 @@ function setupTableEventListeners() {
   secondTabla.addAction('select-column', 'select', 'select-column');
   secondTabla.addEventListener('select-column',async (event) => {
     const selectColumn = event.detail;
-    miBarra.data = selectColumn;
+    second_bar.data = selectColumn;
     const result = await getEpisodesColumn(selectColumn);
     console.log("result",result);
-    thirdTabla.setData(result,["animeId","idTemporada","numeroTemporada","tituloCapitulo","descripcionCapitulo","imagenCapitulo","pathCapitulo","duracionMinutos","meGustas","noMeGustas","reproducciones"])
+    thirdTabla.setData(result,["temporadaId","idCapitulo","numeroCapitulo","descripcionCapitulo"])  });
+  second_bar.buttons = botones;
+  // Escuchar el evento 'action' que emite el componente
+  second_bar.addEventListener('action', (event) => {
+      const { action, data } = event.detail;
+      console.log('Evento "action" recibido:', event.detail);
+      if (action === 'add' && data) {
+          console.log('Botón "Añadir" ha sido presionado con datos:', data);
+          const modal =  initEpisodeForm("modal-form-episode");
+          modal.setFormData({animeId: data.animeId, temporadaId: data.temporadaId});
+      }
+  });
+  thirdTabla.addEventListener('edit-item', (event) => {
+      const item = event.detail; // El objeto completo está en event.detail
+      const editdata ={
+       ...item, // Copia todas las propiedades del objeto original
+      id : item.idCapitulo,
+      }
+      console.log(editdata)
+
+      const editform =  initEpisodeForm("modal-form-episode");
+      editform.setFormData(editdata);
+  });
+  thirdTabla.addEventListener('delete-item', (event) => {
+    const DeleteItem = event.detail;
+    console.log('Evento ELIMINAR recibido:', DeleteItem);
+  //  deleteEpisode(DeleteItem, ()=>{})
   });
 }
 

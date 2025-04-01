@@ -43,7 +43,8 @@ async function validateDatabaseStructure(db) {
             { name: 'duracion_minutos', type: 'int', },
             { name: 'me_gustas', type: 'int', },
             { name: 'no_me_gustas', type: 'int', },
-            { name: 'reproducciones', type: 'int', }
+            { name: 'reproducciones', type: 'int', },
+            { name: 'animeId', type: 'int'} // Correcto: Se espera NOT NULL 
         ],
         'lenguaje': [
             { name: 'id', type: 'int' },
@@ -146,19 +147,129 @@ async function validateDatabaseStructure(db) {
     }
 }
 
-// La lógica de reparación aquí es robusta y parece correcta.
+// Función mejorada para reparar la estructura de la base de datos
 async function repairDatabaseStructure(db) {
     console.warn('ADVERTENCIA: Iniciando intento de reparación de estructura de base de datos.');
-    console.warn('Esta función intentará ejecutar comandos de `database.sql` individualmente.');
+    console.warn('Esta función intentará ejecutar comandos de `database.sql` individualmente y añadir columnas faltantes.');
     let success = true;
     let finalError = null;
     let failureReason = '';
     let sqlPath = ''; // Declarar fuera del try para usar en catch
+    const columnsAdded = []; // Para rastrear las columnas añadidas
 
     try {
-        // Asegúrate que esta ruta es correcta para tu estructura de proyecto
+        // Primero, identificar las columnas faltantes en tablas existentes
+        console.log('Identificando columnas faltantes en tablas existentes...');
+        const { valid, errors } = await validateDatabaseStructure(db);
+        
+        // Obtener el esquema esperado (reutilizando el de validateDatabaseStructure)
+        const expectedSchema = {
+            'catalogo': [
+                { name: 'id', type: 'int' },
+                { name: 'nombre', type: 'varchar'},
+                { name: 'estado', type: 'int', },
+                { name: 'imagen_fondo', type: 'varchar' },
+                { name: 'descripcion', type: 'text', },
+                { name: 'nsfw', type: 'tinyint', },
+                { name: 'trailer', type: 'varchar', },
+                { name: 'recomendacion', type: 'tinyint', }
+            ],
+            'temporadas': [
+                { name: 'id', type: 'int' },
+                { name: 'anime_id', type: 'int'},
+                { name: 'numero', type: 'int' },
+                { name: 'nombre', type: 'varchar', },
+                { name: 'descripcion', type: 'text', },
+                { name: 'portada', type: 'varchar', },
+                { name: 'nsfw', type: 'tinyint', }
+            ],
+            'capitulos': [
+                { name: 'id', type: 'int' },
+                { name: 'temporada_id', type: 'int'},
+                { name: 'numero', type: 'int' },
+                { name: 'titulo', type: 'varchar', },
+                { name: 'descripcion', type: 'text', },
+                { name: 'imagen', type: 'varchar', },
+                { name: 'path', type: 'varchar', },
+                { name: 'duracion_minutos', type: 'int', },
+                { name: 'me_gustas', type: 'int', },
+                { name: 'no_me_gustas', type: 'int', },
+                { name: 'reproducciones', type: 'int', },
+                { name: 'animeId', type: 'int'}
+            ],
+            'lenguaje': [
+                { name: 'id', type: 'int' },
+                { name: 'nombre', type: 'varchar'},
+                { name: 'codigo', type: 'varchar'},
+                { name: 'ruta', type: 'varchar'},
+                { name: 'estado', type: 'int', },
+                { name: 'capitulo_id', type: 'int'}
+            ]
+        };
+
+        // Obtener las tablas existentes
+        const [existingTablesResult] = await db.query('SHOW TABLES');
+        const existingTableNames = existingTablesResult.map(row => Object.values(row)[0]);
+        
+        // Para cada tabla existente, verificar columnas faltantes
+        for (const tableName of existingTableNames) {
+            // Verificar si esta tabla está en nuestro esquema esperado
+            if (!expectedSchema[tableName]) {
+                console.log(`Tabla '${tableName}' no está en el esquema esperado, omitiendo.`);
+                continue;
+            }
+
+            try {
+                // Obtener columnas actuales de la tabla
+                const [actualColumnsResult] = await db.query(`DESCRIBE ${tableName}`);
+                const actualColumnNames = actualColumnsResult.map(col => col.Field);
+                const expectedColumns = expectedSchema[tableName];
+
+                // Identificar columnas faltantes
+                const missingColumns = expectedColumns.filter(col => !actualColumnNames.includes(col.name));
+
+                // Añadir cada columna faltante
+                for (const missingCol of missingColumns) {
+                    try {
+                        // Determinar el tipo SQL completo basado en el tipo base
+                        let sqlType = '';
+                        switch (missingCol.type.toLowerCase()) {
+                            case 'int':
+                                sqlType = 'INT';
+                                break;
+                            case 'varchar':
+                                sqlType = 'VARCHAR(255)';
+                                break;
+                            case 'text':
+                                sqlType = 'TEXT';
+                                break;
+                            case 'tinyint':
+                                sqlType = 'TINYINT(1)';
+                                break;
+                            default:
+                                sqlType = missingCol.type.toUpperCase();
+                        }
+
+                        // Construir y ejecutar el comando ALTER TABLE
+                        const alterCmd = `ALTER TABLE ${tableName} ADD COLUMN ${missingCol.name} ${sqlType}`;
+                        console.log(`Añadiendo columna faltante: ${alterCmd}`);
+                        await db.query(alterCmd);
+                        columnsAdded.push(`${tableName}.${missingCol.name}`);
+                    } catch (error) {
+                        console.error(`Error al añadir columna '${missingCol.name}' a tabla '${tableName}':`, error.message);
+                        // No marcamos como fallo total, continuamos con otras columnas
+                    }
+                }
+            } catch (error) {
+                console.error(`Error al obtener estructura de tabla '${tableName}':`, error.message);
+                // No marcamos como fallo total, continuamos con otras tablas
+            }
+        }
+
+        // Ahora ejecutamos el script SQL completo para asegurar que se crean tablas faltantes
+        // y se aplican otras restricciones
         sqlPath = path.join(__dirname, '..', 'database.sql');
-        console.log(`Leyendo script SQL desde: ${sqlPath}`); // Log para confirmar ruta
+        console.log(`Leyendo script SQL desde: ${sqlPath}`);
         const sql = await fs.readFile(sqlPath, 'utf8');
 
         // Filtrar comentarios y comandos vacíos de forma más robusta
@@ -223,10 +334,15 @@ async function repairDatabaseStructure(db) {
         }
 
         if (success) {
-             console.log('Intento de reparación completado (comandos ejecutados, errores ignorables pueden haber ocurrido).');
+             const columnsAddedMsg = columnsAdded.length > 0 ? 
+                 `Se añadieron las siguientes columnas: ${columnsAdded.join(', ')}. ` : 
+                 'No se detectaron columnas faltantes para añadir. ';
+             
+             console.log(`Intento de reparación completado. ${columnsAddedMsg}Comandos ejecutados, errores ignorables pueden haber ocurrido.`);
              return {
                  success: true,
-                 message: 'Se intentó la reparación ejecutando comandos individuales.'
+                 message: `Se completó la reparación. ${columnsAddedMsg}`,
+                 columnsAdded
              };
         } else {
              console.error(`Intento de reparación fallido. ${failureReason}`);
@@ -234,7 +350,8 @@ async function repairDatabaseStructure(db) {
                  success: false,
                  // Proporcionar más contexto en el error
                  error: `Error al ejecutar comando SQL durante reparación: "${finalError?.message || 'Error desconocido'}" (Code: ${finalError?.code || 'N/A'}) en comando: ${finalError?.sql?.substring(0, 100) || 'N/A'}...`,
-                 reason: failureReason
+                 reason: failureReason,
+                 columnsAdded
              };
         }
 
@@ -243,7 +360,8 @@ async function repairDatabaseStructure(db) {
         console.error(`Error general durante el intento de reparación de la base de datos (posiblemente leyendo ${sqlPath}):`, error);
         return {
             success: false,
-            error: `Error general durante reparación (ej. lectura de archivo ${sqlPath}): ${error.message}`
+            error: `Error general durante reparación (ej. lectura de archivo ${sqlPath}): ${error.message}`,
+            columnsAdded
         };
     }
 }

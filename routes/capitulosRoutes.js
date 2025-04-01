@@ -161,8 +161,9 @@ initializeRouter().then(() => {
                     duracion_minutos, 
                     me_gustas, 
                     no_me_gustas, 
-                    reproducciones
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    reproducciones,
+                    animeId
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
             const params = [
                 temporadaId, 
@@ -174,7 +175,8 @@ initializeRouter().then(() => {
                 duracion_minutos, 
                 me_gustas, 
                 no_me_gustas, 
-                reproducciones
+                reproducciones,
+                animeId
             ];
             const queryResult = await executeQuery(db, query, params);
 

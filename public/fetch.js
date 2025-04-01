@@ -123,7 +123,31 @@ async function saveAnime(anime, cb = () => {}) {
       console.error('Error al obtener columna:', error);
     }
   }
-  
+  async function saveEpisode(data) {
+    //'/anime/:animeId/temporadas/:temporadaId/capitulos'
+    /*            numero, 
+            titulo, 
+            descripcion, 
+            imagen, 
+            path, */
+    const method = data.idCapitulo ? 'PUT' : 'POST';
+    const url = data.idCapitulo ? `/api/anime/${data.animeId}/temporadas/${data.idTemporada}/capitulos/${data.idCapitulo}` : '/api/anime/'+data.animeId+"/temporadas/"+data.idTemporada+"/capitulos";
+    try {
+      console.log("saveEpisode", data, url, method);
+      const response = await fetch(BaseUrl + `/api/anime/${data.animeId}/temporadas/${data.idTemporada}/capitulos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      const column = await response.json();
+      console.log(column);
+      return column;
+    } catch (error) {
+      console.error('Error al obtener columna:', error);
+    }
+  }
   async function deleteAnime(id, cb = () => {}) {
     if (confirm('¿Estás seguro de eliminar este anime?')) {
         try {
@@ -168,5 +192,6 @@ async function saveAnime(anime, cb = () => {}) {
     getSeason,
     deleteAnime,
     deleteSeason,
-    getEpisodesColumn
+    getEpisodesColumn,
+    saveEpisode
   }

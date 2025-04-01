@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS capitulos (
     me_gustas INT DEFAULT 0,             -- Permite NULL (validador espera nullable: YES)
     no_me_gustas INT DEFAULT 0,          -- Permite NULL (validador espera nullable: YES)
     reproducciones INT DEFAULT 0,        -- Permite NULL (validador espera nullable: YES)
+    animeId INT NOT NULL,
     -- La Foreign Key crea implícitamente un índice (MUL key)
     FOREIGN KEY (temporada_id) REFERENCES temporadas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
@@ -83,5 +84,10 @@ ALTER TABLE capitulos ADD UNIQUE KEY `temporada_capitulo_numero` (`temporada_id`
 ALTER TABLE temporadas MODIFY COLUMN anime_id INT NOT NULL;
 ALTER TABLE capitulos MODIFY COLUMN temporada_id INT NOT NULL;
 ALTER TABLE lenguaje MODIFY COLUMN capitulo_id INT NOT NULL;
+
+-- Añadir columna animeId a la tabla capitulos
+ALTER TABLE capitulos ADD COLUMN animeId INT NOT NULL AFTER temporada_id;
+-- En caso de error porque la columna ya existe, este comando fallará de manera segura
+-- y el sistema continuará con la siguiente instrucción
 
 -- --- Fin del Script ---

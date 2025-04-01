@@ -11,7 +11,8 @@ import {
   deleteAnime,
   deleteSeason,
   getEpisodesColumn,
-  saveEpisode
+  saveEpisode,
+  deleteEpisode
 } from './fetch.js';
 /**
  * Initialize the anime form
@@ -81,7 +82,7 @@ function getEpisodeModalData(getElements = false) {
     "descripcion": "descripcionCapitulo",
     "imagen": "imagenCapitulo",
     "path": "pathCapitulo",
-    "idCapitulo": "form_id"
+    "capituloId": "form_id"
   };
   
   return getFormData(fieldMap, getElements);
@@ -504,7 +505,7 @@ function setupTableEventListeners() {
     second_bar.data = selectColumn;
     const result = await getEpisodesColumn(selectColumn);
     console.log("result",result);
-    thirdTabla.setData(result,["temporadaId","idCapitulo","numeroCapitulo","descripcionCapitulo"])  });
+    thirdTabla.setData(result,["temporadaId","capituloId","numeroCapitulo","descripcionCapitulo"])  });
   second_bar.buttons = botones;
   // Escuchar el evento 'action' que emite el componente
   second_bar.addEventListener('action', (event) => {
@@ -520,7 +521,7 @@ function setupTableEventListeners() {
       const item = event.detail; // El objeto completo está en event.detail
       const editdata ={
        ...item, // Copia todas las propiedades del objeto original
-      id : item.idCapitulo,
+      id : item.capituloId,
       }
       console.log(editdata)
 
@@ -530,7 +531,7 @@ function setupTableEventListeners() {
   thirdTabla.addEventListener('delete-item', (event) => {
     const DeleteItem = event.detail;
     console.log('Evento ELIMINAR recibido:', DeleteItem);
-  //  deleteEpisode(DeleteItem, ()=>{})
+    deleteEpisode(DeleteItem, ()=>{})
   });
 }
 

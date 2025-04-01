@@ -38,8 +38,7 @@ initializeRouter().then(() => {
 
             // Formatear la respuesta
             const capitulos = capitulosDb.map(cap => ({
-                ...cap,
-                idCapitulo: cap.id,
+                capituloId: cap.id,
                 numeroCapitulo: cap.numero,
                 tituloCapitulo: cap.titulo,
                 descripcionCapitulo: cap.descripcion,
@@ -95,7 +94,7 @@ initializeRouter().then(() => {
             // Formatear la respuesta
             const capitulo = capituloDb[0];
             const capituloFormateado = {
-                idCapitulo: capitulo.id,
+                capituloId: capitulo.id,
                 numeroCapitulo: capitulo.numero,
                 tituloCapitulo: capitulo.titulo,
                 descripcionCapitulo: capitulo.descripcion,
@@ -194,7 +193,7 @@ initializeRouter().then(() => {
                 const [insertResult] = queryResult.result;
                 res.status(201).json({
                     message: 'Capítulo creado exitosamente',
-                    idCapitulo: insertResult.insertId,
+                    capituloId: insertResult.insertId,
                     temporadaId: temporadaId,
                     animeId: animeId
                 });

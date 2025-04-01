@@ -93,10 +93,10 @@ export const saveSeason = async (data, callback = () => {}) => {
 };
 
 export const saveEpisode = async (data, callback = () => {}) => {
-  const url = data.idCapitulo 
-    ? `/api/anime/${data.animeId}/temporadas/${data.temporadaId}/capitulos/${data.idCapitulo}`
+  const url = data.capituloId 
+    ? `/api/anime/${data.animeId}/temporadas/${data.temporadaId}/capitulos/${data.capituloId}`
     : `/api/anime/${data.animeId}/temporadas/${data.temporadaId}/capitulos`;
-  const method = data.idCapitulo ? 'PUT' : 'POST';
+  const method = data.capituloId ? 'PUT' : 'POST';
   
   const episode = await apiRequest(url, method, data);
   callback?.();
@@ -115,5 +115,13 @@ export const deleteSeason = async (data, callback = () => {}) => {
   if (!animeId || !temporadaId || !confirm('¿Estás seguro de eliminar esta temporada?')) return;
   
   await apiRequest(`/api/anime/${animeId}/temporadas/${temporadaId}`, 'DELETE');
+  callback();
+};
+//.delete('/anime/:animeId/temporadas/:temporadaId/capitulos/:capituloId
+export const deleteEpisode = async (data, callback = () => {}) => {
+  const { animeId, temporadaId, capituloId } = data;
+  if (!animeId || !temporadaId || !capituloId || !confirm('¿Estás seguro de eliminar este capítulo?')) return;
+  console.log(`/api/anime/${animeId}/temporadas/${temporadaId}/capitulos/${capituloId}`,)
+  await apiRequest(`/api/anime/${animeId}/temporadas/${temporadaId}/capitulos/${capituloId}`, 'DELETE');
   callback();
 };

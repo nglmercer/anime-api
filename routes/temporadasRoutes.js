@@ -69,7 +69,7 @@ initializeRouter().then(() => {
                 temporadaFormateada.capitulos = capitulosDb
                     .filter(cap => cap.temporada_id === temp.id)
                     .map(cap => ({
-                        idCapitulo: cap.id,           // Consistent naming
+                        capituloId: cap.id,           // Consistent naming
                         numeroCapitulo: cap.numero,        // Consistent naming
                         tituloCapitulo: cap.titulo,        // Consistent naming
                         descripcionCapitulo: cap.descripcion, // Consistent naming
@@ -194,7 +194,7 @@ initializeRouter().then(() => {
                 animeId: temporada.anime_id,
                 nsfw: Boolean(temporada.nsfw),
                 capitulos: capitulosDb.map(cap => ({
-                    idCapitulo: cap.id,
+                    capituloId: cap.id,
                     numeroCapitulo: cap.numero,
                     tituloCapitulo: cap.titulo,
                     descripcionCapitulo: cap.descripcion,

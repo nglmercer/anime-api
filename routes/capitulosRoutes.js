@@ -2,7 +2,21 @@
  * Rutas para la gestión de capítulos de anime
  */
 const express = require('express');
-const { executeQuery, checkEntityExists, handleErrorResponse, formatTemporada, getCapitulosForTemporadas, getTemporadaWithEpisodes, formatCapitulo, getCapitulo } = require('./baseRouter');
+const { 
+    executeQuery, 
+    checkEntityExists, 
+    validateEntityRelationship,
+    handleErrorResponse, 
+    formatTemporada, 
+    getCapitulosForTemporadas, 
+    getTemporadaWithEpisodes, 
+    formatCapitulo, 
+    getCapitulo,
+    createCapitulo,
+    updateCapitulo,
+    deleteCapitulo,
+    updateCapituloStats
+} = require('./baseRouter');
 
 // Función para configurar las rutas con la conexión a la base de datos
 const setupRoutes = (router, db) => {

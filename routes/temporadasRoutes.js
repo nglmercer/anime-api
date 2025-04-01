@@ -2,7 +2,7 @@
  * Rutas para la gestión de temporadas de anime
  */
 const express = require('express');
-const { executeQuery, checkEntityExists, handleErrorResponse, formatTemporada, getCapitulosForTemporadas, getTemporadaWithEpisodes } = require('./baseRouter');
+const { executeQuery, checkEntityExists, handleErrorResponse, formatTemporada, getCapitulosForTemporadas, getTemporadaWithEpisodes,getAnimeWithSeasonsAndEpisodes } = require('./baseRouter');
 
 // Función para configurar las rutas con la conexión a la base de datos
 const setupRoutes = (router, db) => {
@@ -19,9 +19,6 @@ const setupRoutes = (router, db) => {
             }
             
             res.json(result.anime.temporadas);
-
-            res.json(temporadasConCapitulos);
-
         } catch (err) {
             console.error(`Error inesperado al obtener temporadas para anime ${animeId}:`, err);
             handleErrorResponse(res, 500, 'Error interno del servidor');

@@ -2,12 +2,10 @@
  * Rutas para la gestión de capítulos de anime
  */
 const express = require('express');
-const router = express.Router();
-const { initializeRouter, executeQuery, getDb } = require('./baseRouter');
+const { executeQuery } = require('./baseRouter');
 
-// Inicializar el router con la conexión a la base de datos
-initializeRouter().then(() => {
-    const db = getDb();
+// Función para configurar las rutas con la conexión a la base de datos
+const setupRoutes = (router, db) => {
 
     // --- GET ALL CHAPTERS FOR A SEASON ---
     router.get('/anime/:animeId/temporadas/:temporadaId/capitulos', async (req, res) => {
@@ -401,6 +399,7 @@ initializeRouter().then(() => {
             res.status(500).json({ error: 'Error interno del servidor' });
         }
     });
-});
+};
 
-module.exports = router;
+// Exportar la función de configuración de rutas
+module.exports = { setupRoutes };

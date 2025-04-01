@@ -2,15 +2,13 @@
  * Rutas para la gestión de animes
  */
 const express = require('express');
-const router = express.Router();
-const { initializeRouter, executeQuery, getDb } = require('./baseRouter');
+const { executeQuery } = require('./baseRouter');
 
-// Inicializar el router con la conexión a la base de datos
-initializeRouter().then(() => {
-    const db = getDb();
+// Función para configurar las rutas con la conexión a la base de datos
+const setupRoutes = (router, db) => {
 
     // --- GET ALL ANIME ---
-    router.get('/', async (req, res) => {
+    router.get('/anime', async (req, res) => {
         try {
             const queryResult = await executeQuery(db, 'SELECT * FROM catalogo');
             if (queryResult.success) {
@@ -26,22 +24,24 @@ initializeRouter().then(() => {
         }
     });
 
-    // --- GET ANIME BY ID ---
-    router.get('/:id', async (req, res) => {
+    // --- GET ANIME BY ID (WITH SEASONS AND EPISODES) ---
+    router.get('/anime/:id', async (req, res) => {
         try {
             const { id } = req.params;
-            const queryResult = await executeQuery(db, 'SELECT * FROM catalogo WHERE id = ?', [id]);
-
-            if (queryResult.success) {
-                const [results] = queryResult.result;
-                if (results.length > 0) {
-                    res.json(results[0]);
-                } else {
-                    res.status(404).json({ error: 'Anime no encontrado' });
-                }
+            const { getAnimeWithSeasonsAndEpisodes } = require('./baseRouter');
+            
+            // Usar la función centralizada para obtener anime con temporadas y capítulos
+            const result = await getAnimeWithSeasonsAndEpisodes(db, id);
+            
+            if (result.success) {
+                res.json(result.anime);
             } else {
-                console.error('Error al obtener anime:', queryResult.error);
-                res.status(500).json({ error: queryResult.error?.message || 'Error al obtener anime' });
+                if (result.error === 'Anime no encontrado') {
+                    res.status(404).json({ error: result.error });
+                } else {
+                    console.error('Error al obtener anime con temporadas:', result.error);
+                    res.status(500).json({ error: result.error });
+                }
             }
         } catch (err) {
             console.error('Error inesperado:', err);
@@ -50,7 +50,7 @@ initializeRouter().then(() => {
     });
 
     // --- CREATE ANIME ---
-    router.post('/', async (req, res) => {
+    router.post('/anime', async (req, res) => {
         try {
             // Use consistent naming (camelCase in JS, snake_case in DB)
             const { nombre, estado, imagenFondo, descripcion, nsfw, trailer, recomendacion } = req.body;
@@ -87,7 +87,7 @@ initializeRouter().then(() => {
     });
 
     // --- UPDATE ANIME ---
-    router.put('/:id', async (req, res) => {
+    router.put('/anime/:id', async (req, res) => {
         try {
             const { id } = req.params;
             // Get only the fields provided in the body
@@ -146,7 +146,7 @@ initializeRouter().then(() => {
     });
 
     // --- DELETE ANIME ---
-    router.delete('/:id', async (req, res) => {
+    router.delete('/anime/:id', async (req, res) => {
         try {
             const { id } = req.params;
 
@@ -176,6 +176,7 @@ initializeRouter().then(() => {
             res.status(500).json({ error: 'Error interno del servidor' });
         }
     });
-});
+};
 
-module.exports = router;
+// Exportar la función de configuración de rutas
+module.exports = { setupRoutes };

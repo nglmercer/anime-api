@@ -72,7 +72,7 @@ const setupRoutes = (router, db) => {
 
         // Validation
         if (numero === undefined || !nombre) {
-            return res.status(400).json({ error: 'El número y nombre de la temporada son requeridos.' });
+            return handleErrorResponse(res, 400, 'El número y nombre de la temporada son requeridos.');
         }
         const num = parseInt(numero);
         if (isNaN(num) || num <= 0) {
@@ -80,9 +80,9 @@ const setupRoutes = (router, db) => {
         }
 
         try {
-            // Check if anime exists
-            const animeCheck = await executeQuery(db, 'SELECT id FROM catalogo WHERE id = ?', [animeId]);
-            if(!animeCheck.success || animeCheck.result[0].length === 0) {
+            // Verificar que el anime existe usando checkEntityExists
+            const animeCheck = await checkEntityExists(db, 'catalogo', 'id', animeId);
+            if (!animeCheck.success || !animeCheck.exists) {
                 return handleErrorResponse(res, 404, 'Anime no encontrado para añadir temporada.');
             }
 
@@ -122,64 +122,14 @@ const setupRoutes = (router, db) => {
     router.get('/anime/:animeId/temporadas/:temporadaId', async (req, res) => {
         const { animeId, temporadaId } = req.params;
         try {
-            // Verificar que el anime existe
-            const animeCheck = await executeQuery(db, 'SELECT id FROM catalogo WHERE id = ?', [animeId]);
-            if(!animeCheck.success || animeCheck.result[0].length === 0) {
-                return handleErrorResponse(res, 404, 'Anime no encontrado.');   
+            // Usar la función getTemporadaWithEpisodes que ya implementa todas las verificaciones
+            const result = await getTemporadaWithEpisodes(db, animeId, temporadaId);
+            
+            if (!result.success) {
+                return handleErrorResponse(res, 404, result.error);
             }
-
-            // Obtener la temporada específica
-            const temporadaQuery = 'SELECT * FROM temporadas WHERE id = ? AND anime_id = ?';
-            const temporadaResult = await executeQuery(db, temporadaQuery, [temporadaId, animeId]);
-
-            if (!temporadaResult.success) {
-                console.error('Error al obtener temporada:', temporadaResult.error);
-                return handleErrorResponse(res, 500, 'Error al obtener temporada');
-            }
-
-            const [temporadaDb] = temporadaResult.result;
-
-            if (temporadaDb.length === 0) {
-                return handleErrorResponse(res, 404, 'Temporada no encontrada para este anime.');
-            }
-
-            // Obtener los capítulos de esta temporada
-            const capitulosQuery = 'SELECT * FROM capitulos WHERE temporada_id = ? ORDER BY numero ASC';
-            const capitulosResult = await executeQuery(db, capitulosQuery, [temporadaId]);
-
-            if (!capitulosResult.success) {
-                console.error('Error al obtener capítulos:', capitulosResult.error);
-                return handleErrorResponse(res, 500, 'Error al obtener capítulos');
-            }
-
-            const [capitulosDb] = capitulosResult.result;
-
-            // Formatear la respuesta
-            const temporada = temporadaDb[0];
-            const temporadaFormateada = {
-                temporadaId: temporada.id,
-                numeroTemporada: temporada.numero,
-                nombreTemporada: temporada.nombre,
-                descripcionTemporada: temporada.descripcion,
-                portadaTemporada: temporada.portada,
-                animeId: temporada.anime_id,
-                nsfw: Boolean(temporada.nsfw),
-                capitulos: capitulosDb.map(cap => ({
-                    capituloId: cap.id,
-                    numeroCapitulo: cap.numero,
-                    tituloCapitulo: cap.titulo,
-                    descripcionCapitulo: cap.descripcion,
-                    imagenCapitulo: cap.imagen,
-                    pathCapitulo: cap.path,
-                    duracionMinutos: cap.duracion_minutos,
-                    meGustas: cap.me_gustas,
-                    noMeGustas: cap.no_me_gustas,
-                    reproducciones: cap.reproducciones,
-                    temporadaId: cap.temporada_id
-                }))
-            };
-
-            res.json(temporadaFormateada);
+            
+            res.json(result.temporada);
         } catch (err) {
             console.error(`Error inesperado al obtener temporada ${temporadaId} para anime ${animeId}:`, err);
             handleErrorResponse(res, 500, 'Error interno del servidor');
@@ -192,15 +142,15 @@ const setupRoutes = (router, db) => {
         const { numero, nombre, descripcion, portada, nsfw } = req.body;
 
         try {
-            // Verificar que el anime existe
-            const animeCheck = await executeQuery(db, 'SELECT id FROM catalogo WHERE id = ?', [animeId]);
-            if(!animeCheck.success || animeCheck.result[0].length === 0) {
+            // Verificar que el anime existe usando checkEntityExists
+            const animeCheck = await checkEntityExists(db, 'catalogo', 'id', animeId);
+            if (!animeCheck.success || !animeCheck.exists) {
                 return handleErrorResponse(res, 404, 'Anime no encontrado para añadir temporada.');
             }
 
             // Verificar que la temporada existe y pertenece al anime
-            const temporadaCheck = await executeQuery(db, 'SELECT id FROM temporadas WHERE id = ? AND anime_id = ?', [temporadaId, animeId]);
-            if(!temporadaCheck.success || temporadaCheck.result[0].length === 0) {
+            const temporadaCheck = await checkEntityExists(db, 'temporadas', 'id', temporadaId, 'anime_id', animeId);
+            if (!temporadaCheck.success || !temporadaCheck.exists) {
                 return handleErrorResponse(res, 404, 'Temporada no encontrada para este anime.');
             }
 
@@ -209,7 +159,7 @@ const setupRoutes = (router, db) => {
             if (numero !== undefined) {
                 const num = parseInt(numero);
                 if (isNaN(num) || num <= 0) {
-                    return res.status(400).json({ error: 'El número de temporada debe ser un entero positivo.' });
+                    return handleErrorResponse(res, 400, 'El número de temporada debe ser un entero positivo.');
                 }
                 fieldsToUpdate.numero = num;
             }
@@ -220,7 +170,7 @@ const setupRoutes = (router, db) => {
 
             const fieldKeys = Object.keys(fieldsToUpdate);
             if (fieldKeys.length === 0) {
-                return res.status(400).json({ error: 'No se proporcionaron campos para actualizar.' });
+                return handleErrorResponse(res, 400, 'No se proporcionaron campos para actualizar.');
             }
 
             const setClause = fieldKeys.map(key => `${key} = ?`).join(', ');
@@ -258,15 +208,15 @@ const setupRoutes = (router, db) => {
         const { animeId, temporadaId } = req.params;
 
         try {
-            // Verificar que el anime existe
-            const animeCheck = await executeQuery(db, 'SELECT id FROM catalogo WHERE id = ?', [animeId]);
-            if(!animeCheck.success || animeCheck.result[0].length === 0) {
+            // Verificar que el anime existe usando checkEntityExists
+            const animeCheck = await checkEntityExists(db, 'catalogo', 'id', animeId);
+            if (!animeCheck.success || !animeCheck.exists) {
                 return handleErrorResponse(res, 404, 'Anime no encontrado.');
             }
 
             // Verificar que la temporada existe y pertenece al anime
-            const temporadaCheck = await executeQuery(db, 'SELECT id FROM temporadas WHERE id = ? AND anime_id = ?', [temporadaId, animeId]);
-            if(!temporadaCheck.success || temporadaCheck.result[0].length === 0) {
+            const temporadaCheck = await checkEntityExists(db, 'temporadas', 'id', temporadaId, 'anime_id', animeId);
+            if (!temporadaCheck.success || !temporadaCheck.exists) {
                 return handleErrorResponse(res, 404, 'Temporada no encontrada para este anime.');
             }
 

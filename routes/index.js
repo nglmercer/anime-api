@@ -4,7 +4,10 @@
  */
 const express = require('express');
 const router = express.Router();
-const { initializeRouter, getDb } = require('./baseRouter');
+const { 
+  initializeRouter, 
+  getDb
+} = require('./baseRouter');
 
 // Importar las rutas específicas
 const animeRoutes = require('./animeRoutes');

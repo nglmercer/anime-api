@@ -2,7 +2,7 @@
  * Rutas para la gestión de capítulos de anime
  */
 const express = require('express');
-const { executeQuery } = require('./baseRouter');
+const { executeQuery, checkEntityExists, handleErrorResponse, formatTemporada, getCapitulosForTemporadas, getTemporadaWithEpisodes, formatCapitulo, getCapitulo } = require('./baseRouter');
 
 // Función para configurar las rutas con la conexión a la base de datos
 const setupRoutes = (router, db) => {
@@ -11,16 +11,16 @@ const setupRoutes = (router, db) => {
     router.get('/anime/:animeId/temporadas/:temporadaId/capitulos', async (req, res) => {
         const { animeId, temporadaId } = req.params;
         try {
-            // Verificar que el anime existe
-            const animeCheck = await executeQuery(db, 'SELECT id FROM catalogo WHERE id = ?', [animeId]);
-            if(!animeCheck.success || animeCheck.result[0].length === 0) {
-                return res.status(404).json({ error: 'Anime no encontrado.' });
+            // Verificar que el anime existe usando checkEntityExists
+            const animeCheck = await checkEntityExists(db, 'catalogo', 'id', animeId);
+            if (!animeCheck.success || !animeCheck.exists) {
+                return handleErrorResponse(res, 404, 'Anime no encontrado.');
             }
 
             // Verificar que la temporada existe y pertenece al anime
-            const temporadaCheck = await executeQuery(db, 'SELECT id FROM temporadas WHERE id = ? AND anime_id = ?', [temporadaId, animeId]);
-            if(!temporadaCheck.success || temporadaCheck.result[0].length === 0) {
-                return res.status(404).json({ error: 'Temporada no encontrada para este anime.' });
+            const temporadaCheck = await checkEntityExists(db, 'temporadas', 'id', temporadaId, 'anime_id', animeId);
+            if (!temporadaCheck.success || !temporadaCheck.exists) {
+                return handleErrorResponse(res, 404, 'Temporada no encontrada para este anime.');
             }
 
             // Obtener todos los capítulos de la temporada
@@ -29,32 +29,23 @@ const setupRoutes = (router, db) => {
 
             if (!capitulosResult.success) {
                 console.error('Error al obtener capítulos:', capitulosResult.error);
-                return res.status(500).json({ error: 'Error al obtener capítulos' });
+                return handleErrorResponse(res, 500, 'Error al obtener capítulos');
             }
 
             const [capitulosDb] = capitulosResult.result;
 
-            // Formatear la respuesta
-            const capitulos = capitulosDb.map(cap => ({
-                capituloId: cap.id,
-                numeroCapitulo: cap.numero,
-                tituloCapitulo: cap.titulo,
-                descripcionCapitulo: cap.descripcion,
-                imagenCapitulo: cap.imagen,
-                pathCapitulo: cap.path,
-                duracionMinutos: cap.duracion_minutos,
-                meGustas: cap.me_gustas,
-                noMeGustas: cap.no_me_gustas,
-                reproducciones: cap.reproducciones,
-                temporadaId: cap.temporada_id,
-                animeId: cap.animeId,
-                
-            }));
+            // Formatear la respuesta usando formatCapitulo
+            const capitulos = capitulosDb.map(cap => {
+                const formattedCap = formatCapitulo(cap);
+                // Añadir animeId que no está en formatCapitulo por defecto
+                if (cap.animeId) formattedCap.animeId = cap.animeId;
+                return formattedCap;
+            });
 
             res.json(capitulos);
         } catch (err) {
             console.error(`Error inesperado al obtener capítulos para temporada ${temporadaId}:`, err);
-            res.status(500).json({ error: 'Error interno del servidor' });
+            handleErrorResponse(res, 500, 'Error interno del servidor');
         }
     });
 
@@ -62,53 +53,17 @@ const setupRoutes = (router, db) => {
     router.get('/anime/:animeId/temporadas/:temporadaId/capitulos/:capituloId', async (req, res) => {
         const { animeId, temporadaId, capituloId } = req.params;
         try {
-            // Verificar que el anime existe
-            const animeCheck = await executeQuery(db, 'SELECT id FROM catalogo WHERE id = ?', [animeId]);
-            if(!animeCheck.success || animeCheck.result[0].length === 0) {
-                return res.status(404).json({ error: 'Anime no encontrado.' });
+            // Usar la función getCapitulo de baseRouter que ya implementa todas las verificaciones
+            const result = await getCapitulo(db, animeId, temporadaId, capituloId);
+            
+            if (!result.success) {
+                return handleErrorResponse(res, 404, result.error);
             }
-
-            // Verificar que la temporada existe y pertenece al anime
-            const temporadaCheck = await executeQuery(db, 'SELECT id FROM temporadas WHERE id = ? AND anime_id = ?', [temporadaId, animeId]);
-            if(!temporadaCheck.success || temporadaCheck.result[0].length === 0) {
-                return res.status(404).json({ error: 'Temporada no encontrada para este anime.' });
-            }
-
-            // Obtener el capítulo específico
-            const capituloQuery = 'SELECT * FROM capitulos WHERE id = ? AND temporada_id = ?';
-            const capituloResult = await executeQuery(db, capituloQuery, [capituloId, temporadaId]);
-
-            if (!capituloResult.success) {
-                console.error('Error al obtener capítulo:', capituloResult.error);
-                return res.status(500).json({ error: 'Error al obtener capítulo' });
-            }
-
-            const [capituloDb] = capituloResult.result;
-
-            if (capituloDb.length === 0) {
-                return res.status(404).json({ error: 'Capítulo no encontrado para esta temporada.' });
-            }
-
-            // Formatear la respuesta
-            const capitulo = capituloDb[0];
-            const capituloFormateado = {
-                capituloId: capitulo.id,
-                numeroCapitulo: capitulo.numero,
-                tituloCapitulo: capitulo.titulo,
-                descripcionCapitulo: capitulo.descripcion,
-                imagenCapitulo: capitulo.imagen,
-                pathCapitulo: capitulo.path,
-                duracionMinutos: capitulo.duracion_minutos,
-                meGustas: capitulo.me_gustas,
-                noMeGustas: capitulo.no_me_gustas,
-                reproducciones: capitulo.reproducciones,
-                temporadaId: capitulo.temporada_id
-            };
-
-            res.json(capituloFormateado);
+            
+            res.json(result.capitulo);
         } catch (err) {
             console.error(`Error inesperado al obtener capítulo ${capituloId}:`, err);
-            res.status(500).json({ error: 'Error interno del servidor' });
+            handleErrorResponse(res, 500, 'Error interno del servidor');
         }
     });
 
@@ -132,28 +87,28 @@ const setupRoutes = (router, db) => {
 
         // Validación básica
         if (numero === undefined || !titulo) {
-            return res.status(400).json({ error: 'El número y título del capítulo son requeridos.' });
+            return handleErrorResponse(res, 400, 'El número y título del capítulo son requeridos.');
         }
         const num = parseInt(numero);
         if (isNaN(num) || num <= 0) {
-            return res.status(400).json({ error: 'El número de capítulo debe ser un entero positivo.' });
+            return handleErrorResponse(res, 400, 'El número de capítulo debe ser un entero positivo.');
         }
         // Validar que el número no exceda el límite máximo de INT en MySQL
         if (num > 2147483647) {
-            return res.status(400).json({ error: 'El número de capítulo es demasiado grande. El valor máximo permitido es 2,147,483,647.' });
+            return handleErrorResponse(res, 400, 'El número de capítulo es demasiado grande. El valor máximo permitido es 2,147,483,647.');
         }
 
         try {
-            // Verificar que el anime existe
-            const animeCheck = await executeQuery(db, 'SELECT id FROM catalogo WHERE id = ?', [animeId]);
-            if(!animeCheck.success || animeCheck.result[0].length === 0) {
-                return res.status(404).json({ error: 'Anime no encontrado.' });
+            // Verificar que el anime existe usando checkEntityExists
+            const animeCheck = await checkEntityExists(db, 'catalogo', 'id', animeId);
+            if (!animeCheck.success || !animeCheck.exists) {
+                return handleErrorResponse(res, 404, 'Anime no encontrado.');
             }
 
             // Verificar que la temporada existe y pertenece al anime
-            const temporadaCheck = await executeQuery(db, 'SELECT id FROM temporadas WHERE id = ? AND anime_id = ?', [temporadaId, animeId]);
-            if(!temporadaCheck.success || temporadaCheck.result[0].length === 0) {
-                return res.status(404).json({ error: 'Temporada no encontrada para este anime.' });
+            const temporadaCheck = await checkEntityExists(db, 'temporadas', 'id', temporadaId, 'anime_id', animeId);
+            if (!temporadaCheck.success || !temporadaCheck.exists) {
+                return handleErrorResponse(res, 404, 'Temporada no encontrada para este anime.');
             }
 
             // Crear el capítulo
@@ -198,16 +153,16 @@ const setupRoutes = (router, db) => {
             } else {
                 console.error('Error al crear capítulo:', queryResult.error);
                 if (queryResult.error?.code === 'ER_DUP_ENTRY') {
-                    return res.status(409).json({ error: `El capítulo número ${num} ya existe para esta temporada.` });
+                    return handleErrorResponse(res, 409, `El capítulo número ${num} ya existe para esta temporada.`);
                 }
-                res.status(500).json({ error: 'Error al crear el capítulo', details: queryResult.error?.message });
+                handleErrorResponse(res, 500, 'Error al crear capítulo', queryResult.error?.message);
             }
         } catch (err) {
             console.error('Error inesperado al crear capítulo:', err);
             if (err.code === 'ER_DUP_ENTRY') {
-                return res.status(409).json({ error: `El capítulo número ${num} ya existe para esta temporada.` });
+                return handleErrorResponse(res, 409, `El capítulo número ${num} ya existe para esta temporada.`);
             }
-            res.status(500).json({ error: 'Error interno del servidor' });
+            handleErrorResponse(res, 500, 'Error interno del servidor');
         }
     });
 
@@ -227,22 +182,22 @@ const setupRoutes = (router, db) => {
         } = req.body;
 
         try {
-            // Verificar que el anime existe
-            const animeCheck = await executeQuery(db, 'SELECT id FROM catalogo WHERE id = ?', [animeId]);
-            if(!animeCheck.success || animeCheck.result[0].length === 0) {
-                return res.status(404).json({ error: 'Anime no encontrado.' });
+            // Verificar que el anime existe usando checkEntityExists
+            const animeCheck = await checkEntityExists(db, 'catalogo', 'id', animeId);
+            if (!animeCheck.success || !animeCheck.exists) {
+                return handleErrorResponse(res, 404, 'Anime no encontrado.');
             }
 
             // Verificar que la temporada existe y pertenece al anime
-            const temporadaCheck = await executeQuery(db, 'SELECT id FROM temporadas WHERE id = ? AND anime_id = ?', [temporadaId, animeId]);
-            if(!temporadaCheck.success || temporadaCheck.result[0].length === 0) {
-                return res.status(404).json({ error: 'Temporada no encontrada para este anime.' });
+            const temporadaCheck = await checkEntityExists(db, 'temporadas', 'id', temporadaId, 'anime_id', animeId);
+            if (!temporadaCheck.success || !temporadaCheck.exists) {
+                return handleErrorResponse(res, 404, 'Temporada no encontrada para este anime.');
             }
 
             // Verificar que el capítulo existe y pertenece a la temporada
-            const capituloCheck = await executeQuery(db, 'SELECT id FROM capitulos WHERE id = ? AND temporada_id = ?', [capituloId, temporadaId]);
-            if(!capituloCheck.success || capituloCheck.result[0].length === 0) {
-                return res.status(404).json({ error: 'Capítulo no encontrado para esta temporada.' });
+            const capituloCheck = await checkEntityExists(db, 'capitulos', 'id', capituloId, 'temporada_id', temporadaId);
+            if (!capituloCheck.success || !capituloCheck.exists) {
+                return handleErrorResponse(res, 404, 'Capítulo no encontrado para esta temporada.');    
             }
 
             // Construir la consulta de actualización dinámicamente
@@ -285,19 +240,16 @@ const setupRoutes = (router, db) => {
             } else {
                 console.error('Error al actualizar capítulo:', queryResult.error);
                 if (queryResult.error?.code === 'ER_DUP_ENTRY') {
-                    return res.status(409).json({ error: 'La actualización resultaría en un valor duplicado para un campo único.' });
+                    return handleErrorResponse(res, 409, 'La actualización resultaría en un valor duplicado para un campo único.');
                 }
-                res.status(500).json({
-                    error: queryResult.error?.message || 'Error al actualizar capítulo',
-                    details: queryResult.details
-                });
+                handleErrorResponse(res, 500, queryResult.error?.message || 'Error al actualizar capítulo', queryResult.details);
             }
         } catch (err) {
             console.error('Error inesperado al actualizar capítulo:', err);
             if (err.code === 'ER_DUP_ENTRY') {
-                return res.status(409).json({ error: 'La actualización resultaría en un valor duplicado para un campo único.' });
+                return handleErrorResponse(res, 409, 'La actualización resultaría en un valor duplicado para un campo único.');
             }
-            res.status(500).json({ error: 'Error interno del servidor' });
+            handleErrorResponse(res, 500, 'Error interno del servidor');
         }
     });
 
@@ -306,22 +258,22 @@ const setupRoutes = (router, db) => {
         const { animeId, temporadaId, capituloId } = req.params;
 
         try {
-            // Verificar que el anime existe
-            const animeCheck = await executeQuery(db, 'SELECT id FROM catalogo WHERE id = ?', [animeId]);
-            if(!animeCheck.success || animeCheck.result[0].length === 0) {
-                return res.status(404).json({ error: 'Anime no encontrado.' });
+            // Verificar que el anime existe usando checkEntityExists
+            const animeCheck = await checkEntityExists(db, 'catalogo', 'id', animeId);
+            if (!animeCheck.success || !animeCheck.exists) {
+                return handleErrorResponse(res, 404, 'Anime no encontrado.');
             }
 
             // Verificar que la temporada existe y pertenece al anime
-            const temporadaCheck = await executeQuery(db, 'SELECT id FROM temporadas WHERE id = ? AND anime_id = ?', [temporadaId, animeId]);
-            if(!temporadaCheck.success || temporadaCheck.result[0].length === 0) {
-                return res.status(404).json({ error: 'Temporada no encontrada para este anime.' });
+            const temporadaCheck = await checkEntityExists(db, 'temporadas', 'id', temporadaId, 'anime_id', animeId);
+            if (!temporadaCheck.success || !temporadaCheck.exists) {
+                return handleErrorResponse(res, 404, 'Temporada no encontrada para este anime.');
             }
 
             // Verificar que el capítulo existe y pertenece a la temporada
-            const capituloCheck = await executeQuery(db, 'SELECT id FROM capitulos WHERE id = ? AND temporada_id = ?', [capituloId, temporadaId]);
-            if(!capituloCheck.success || capituloCheck.result[0].length === 0) {
-                return res.status(404).json({ error: 'Capítulo no encontrado para esta temporada.' });
+            const capituloCheck = await checkEntityExists(db, 'capitulos', 'id', capituloId, 'temporada_id', temporadaId);
+            if (!capituloCheck.success || !capituloCheck.exists) {
+                return handleErrorResponse(res, 404, 'Capítulo no encontrado para esta temporada.');
             }
 
             // Eliminar el capítulo
@@ -336,15 +288,15 @@ const setupRoutes = (router, db) => {
                 if (deleteResult.affectedRows > 0) {
                     res.json({ message: 'Capítulo eliminado exitosamente' });
                 } else {
-                    res.status(404).json({ error: 'Capítulo no encontrado para eliminar.' });
+                    handleErrorResponse(res, 404, 'Capítulo no encontrado para eliminar.');
                 }
             } else {
                 console.error('Error al eliminar capítulo:', queryResult.error);
-                res.status(500).json({ error: queryResult.error?.message || 'Error al eliminar capítulo' });
+                handleErrorResponse(res, 500, queryResult.error?.message || 'Error al eliminar capítulo');
             }
         } catch (err) {
             console.error('Error inesperado al eliminar capítulo:', err);
-            res.status(500).json({ error: 'Error interno del servidor' });
+            handleErrorResponse(res, 500, 'Error interno del servidor');
         }
     });
 
@@ -354,17 +306,22 @@ const setupRoutes = (router, db) => {
         const { me_gustas, no_me_gustas, reproducciones } = req.body;
 
         try {
-            // Verificar que el capítulo existe y pertenece a la temporada correcta
-            const capituloCheck = await executeQuery(
-                db,
-                `SELECT c.id FROM capitulos c 
-                 JOIN temporadas t ON c.temporada_id = t.id 
-                 WHERE c.id = ? AND c.temporada_id = ? AND t.anime_id = ?`,
-                [capituloId, temporadaId, animeId]
-            );
+            // Verificar que el anime existe
+            const animeCheck = await checkEntityExists(db, 'catalogo', 'id', animeId);
+            if (!animeCheck.success || !animeCheck.exists) {
+                return handleErrorResponse(res, 404, 'Anime no encontrado.');
+            }
 
-            if(!capituloCheck.success || capituloCheck.result[0].length === 0) {
-                return res.status(404).json({ error: 'Capítulo no encontrado para esta temporada y anime.' });
+            // Verificar que la temporada existe y pertenece al anime
+            const temporadaCheck = await checkEntityExists(db, 'temporadas', 'id', temporadaId, 'anime_id', animeId);
+            if (!temporadaCheck.success || !temporadaCheck.exists) {
+                return handleErrorResponse(res, 404, 'Temporada no encontrada para este anime.');
+            }
+
+            // Verificar que el capítulo existe y pertenece a la temporada
+            const capituloCheck = await checkEntityExists(db, 'capitulos', 'id', capituloId, 'temporada_id', temporadaId);
+            if (!capituloCheck.success || !capituloCheck.exists) {
+                return handleErrorResponse(res, 404, 'Capítulo no encontrado para esta temporada y anime.');
             }
 
             // Construir la consulta de actualización dinámicamente
@@ -375,7 +332,7 @@ const setupRoutes = (router, db) => {
 
             const fieldKeys = Object.keys(fieldsToUpdate);
             if (fieldKeys.length === 0) {
-                return res.status(400).json({ error: 'No se proporcionaron estadísticas para actualizar.' });
+                return handleErrorResponse(res, 400, 'No se proporcionaron estadísticas para actualizar.');
             }
 
             const setClause = fieldKeys.map(key => `${key} = ?`).join(', ');
@@ -389,14 +346,11 @@ const setupRoutes = (router, db) => {
                 res.json({ message: 'Estadísticas del capítulo actualizadas exitosamente' });
             } else {
                 console.error('Error al actualizar estadísticas del capítulo:', queryResult.error);
-                res.status(500).json({
-                    error: queryResult.error?.message || 'Error al actualizar estadísticas del capítulo',
-                    details: queryResult.details
-                });
+                handleErrorResponse(res, 500, queryResult.error?.message || 'Error al actualizar estadísticas del capítulo', queryResult.details);
             }
         } catch (err) {
             console.error('Error inesperado al actualizar estadísticas del capítulo:', err);
-            res.status(500).json({ error: 'Error interno del servidor' });
+            handleErrorResponse(res, 500, 'Error interno del servidor');
         }
     });
 };

@@ -1,14 +1,8 @@
-/**
- * Archivo base para configuración de rutas
- * Proporciona acceso a la base de datos y funciones comunes para todos los routers
- */
 const { initializeDatabase } = require('../utils/database');
 const { executeQuery } = require('../utils/queryHandler');
 
-// Variable para almacenar la conexión a la base de datos
 let db;
 
-// Inicializar la conexión a la base de datos
 const initializeRouter = async () => {
     if (!db) {
         db = await initializeDatabase();
@@ -16,16 +10,6 @@ const initializeRouter = async () => {
     return db;
 };
 
-/**
- * Verifica si un registro existe en la base de datos
- * @param {Object} db - Conexión a la base de datos
- * @param {string} table - Nombre de la tabla a consultar
- * @param {string} field - Campo por el que se filtrará (generalmente 'id')
- * @param {any} value - Valor a buscar
- * @param {string} [additionalField] - Campo adicional para filtrar (opcional)
- * @param {any} [additionalValue] - Valor adicional para filtrar (opcional)
- * @returns {Promise<Object>} - Objeto con el resultado de la verificación
- */
 const checkEntityExists = async (db, table, field, value, additionalField = null, additionalValue = null) => {
     try {
         let query = `SELECT ${field} FROM ${table} WHERE ${field} = ?`;
@@ -54,24 +38,12 @@ const checkEntityExists = async (db, table, field, value, additionalField = null
     }
 };
 
-/**
- * Maneja respuestas de error comunes
- * @param {Object} res - Objeto de respuesta Express
- * @param {number} statusCode - Código de estado HTTP
- * @param {string} message - Mensaje de error
- * @param {Object} [details] - Detalles adicionales del error (opcional)
- */
 const handleErrorResponse = (res, statusCode, message, details = null) => {
     const response = { error: message };
     if (details) response.details = details;
     res.status(statusCode).json(response);
 };
 
-/**
- * Formatea un capítulo para la respuesta API
- * @param {Object} capitulo - Objeto de capítulo de la base de datos
- * @returns {Object} - Capítulo formateado
- */
 const formatCapitulo = (capitulo) => ({
     capituloId: capitulo.id,
     numeroCapitulo: capitulo.numero,
@@ -86,12 +58,6 @@ const formatCapitulo = (capitulo) => ({
     temporadaId: capitulo.temporada_id
 });
 
-/**
- * Formatea una temporada para la respuesta API
- * @param {Object} temporada - Objeto de temporada de la base de datos
- * @param {Array} [capitulos=[]] - Array de capítulos de esta temporada (opcional)
- * @returns {Object} - Temporada formateada
- */
 const formatTemporada = (temporada, capitulos = []) => ({
     temporadaId: temporada.id,
     numeroTemporada: temporada.numero,
@@ -103,12 +69,6 @@ const formatTemporada = (temporada, capitulos = []) => ({
     capitulos: capitulos.map(formatCapitulo)
 });
 
-/**
- * Obtiene todos los capítulos para un conjunto de temporadas
- * @param {Object} db - Conexión a la base de datos
- * @param {Array} temporadaIds - Array de IDs de temporadas
- * @returns {Promise<Object>} - Objeto con los capítulos agrupados por temporada
- */
 const getCapitulosForTemporadas = async (db, temporadaIds) => {
     try {
         if (!temporadaIds || temporadaIds.length === 0) {
@@ -130,15 +90,8 @@ const getCapitulosForTemporadas = async (db, temporadaIds) => {
     }
 };
 
-/**
- * Obtiene un anime por ID incluyendo sus temporadas y capítulos
- * @param {Object} db - Conexión a la base de datos
- * @param {number|string} animeId - ID del anime a consultar
- * @returns {Promise<Object>} - Objeto con el anime, sus temporadas y capítulos
- */
 const getAnimeWithSeasonsAndEpisodes = async (db, animeId) => {
     try {
-        // 1. Verificar y obtener información del anime
         const animeCheck = await checkEntityExists(db, 'catalogo', 'id', animeId);
         
         if (!animeCheck.success) {
@@ -149,7 +102,6 @@ const getAnimeWithSeasonsAndEpisodes = async (db, animeId) => {
             return { success: false, error: 'Anime no encontrado' };
         }
         
-        // Obtener datos completos del anime
         const animeQuery = 'SELECT * FROM catalogo WHERE id = ?';
         const animeResult = await executeQuery(db, animeQuery, [animeId]);
         
@@ -159,7 +111,6 @@ const getAnimeWithSeasonsAndEpisodes = async (db, animeId) => {
         
         const anime = animeResult.result[0][0];
         
-        // 2. Obtener todas las temporadas del anime
         const temporadasQuery = 'SELECT * FROM temporadas WHERE anime_id = ? ORDER BY numero ASC';
         const temporadasResult = await executeQuery(db, temporadasQuery, [animeId]);
         
@@ -169,7 +120,6 @@ const getAnimeWithSeasonsAndEpisodes = async (db, animeId) => {
         
         const temporadas = temporadasResult.result[0];
         
-        // 3. Si hay temporadas, obtener todos los capítulos de esas temporadas
         if (temporadas.length > 0) {
             const temporadaIds = temporadas.map(t => t.id);
             const capitulosResult = await getCapitulosForTemporadas(db, temporadaIds);
@@ -180,15 +130,11 @@ const getAnimeWithSeasonsAndEpisodes = async (db, animeId) => {
             
             const capitulos = capitulosResult.capitulos;
             
-            // 4. Estructurar la respuesta con temporadas y capítulos anidados
             const temporadasConCapitulos = temporadas.map(temp => {
-                // Filtrar capítulos para esta temporada
                 const capitulosTemporada = capitulos.filter(cap => cap.temporada_id === temp.id);
-                // Usar la función de formateo
                 return formatTemporada(temp, capitulosTemporada);
             });
             
-            // Añadir temporadas al objeto anime
             anime.temporadas = temporadasConCapitulos;
         } else {
             anime.temporadas = [];
@@ -201,16 +147,8 @@ const getAnimeWithSeasonsAndEpisodes = async (db, animeId) => {
     }
 };
 
-/**
- * Obtiene una temporada por ID con sus capítulos
- * @param {Object} db - Conexión a la base de datos
- * @param {number|string} animeId - ID del anime
- * @param {number|string} temporadaId - ID de la temporada
- * @returns {Promise<Object>} - Objeto con la temporada y sus capítulos
- */
 const getTemporadaWithEpisodes = async (db, animeId, temporadaId) => {
     try {
-        // 1. Verificar que el anime existe
         const animeCheck = await checkEntityExists(db, 'catalogo', 'id', animeId);
         
         if (!animeCheck.success || !animeCheck.exists) {
@@ -220,7 +158,6 @@ const getTemporadaWithEpisodes = async (db, animeId, temporadaId) => {
             };
         }
         
-        // 2. Verificar que la temporada existe y pertenece al anime
         const temporadaCheck = await checkEntityExists(db, 'temporadas', 'id', temporadaId, 'anime_id', animeId);
         
         if (!temporadaCheck.success || !temporadaCheck.exists) {
@@ -230,7 +167,6 @@ const getTemporadaWithEpisodes = async (db, animeId, temporadaId) => {
             };
         }
         
-        // 3. Obtener datos completos de la temporada
         const temporadaQuery = 'SELECT * FROM temporadas WHERE id = ?';
         const temporadaResult = await executeQuery(db, temporadaQuery, [temporadaId]);
         
@@ -240,7 +176,6 @@ const getTemporadaWithEpisodes = async (db, animeId, temporadaId) => {
         
         const temporada = temporadaResult.result[0][0];
         
-        // 4. Obtener capítulos de la temporada
         const capitulosQuery = 'SELECT * FROM capitulos WHERE temporada_id = ? ORDER BY numero ASC';
         const capitulosResult = await executeQuery(db, capitulosQuery, [temporadaId]);
         
@@ -250,7 +185,6 @@ const getTemporadaWithEpisodes = async (db, animeId, temporadaId) => {
         
         const capitulos = capitulosResult.result[0];
         
-        // 5. Formatear la respuesta
         const temporadaFormateada = formatTemporada(temporada, capitulos);
         
         return { success: true, temporada: temporadaFormateada };
@@ -260,17 +194,8 @@ const getTemporadaWithEpisodes = async (db, animeId, temporadaId) => {
     }
 };
 
-/**
- * Obtiene un capítulo por ID
- * @param {Object} db - Conexión a la base de datos
- * @param {number|string} animeId - ID del anime
- * @param {number|string} temporadaId - ID de la temporada
- * @param {number|string} capituloId - ID del capítulo
- * @returns {Promise<Object>} - Objeto con el capítulo
- */
 const getCapitulo = async (db, animeId, temporadaId, capituloId) => {
     try {
-        // 1. Verificar que el anime existe
         const animeCheck = await checkEntityExists(db, 'catalogo', 'id', animeId);
         
         if (!animeCheck.success || !animeCheck.exists) {
@@ -280,7 +205,6 @@ const getCapitulo = async (db, animeId, temporadaId, capituloId) => {
             };
         }
         
-        // 2. Verificar que la temporada existe y pertenece al anime
         const temporadaCheck = await checkEntityExists(db, 'temporadas', 'id', temporadaId, 'anime_id', animeId);
         
         if (!temporadaCheck.success || !temporadaCheck.exists) {
@@ -290,7 +214,6 @@ const getCapitulo = async (db, animeId, temporadaId, capituloId) => {
             };
         }
         
-        // 3. Verificar que el capítulo existe y pertenece a la temporada
         const capituloQuery = 'SELECT * FROM capitulos WHERE id = ? AND temporada_id = ?';
         const capituloResult = await executeQuery(db, capituloQuery, [capituloId, temporadaId]);
         
@@ -302,7 +225,6 @@ const getCapitulo = async (db, animeId, temporadaId, capituloId) => {
             return { success: false, error: 'Capítulo no encontrado para esta temporada' };
         }
         
-        // 4. Formatear la respuesta
         const capitulo = capituloResult.result[0][0];
         const capituloFormateado = formatCapitulo(capitulo);
         

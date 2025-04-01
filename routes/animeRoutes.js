@@ -2,7 +2,7 @@
  * Rutas para la gestión de animes
  */
 const express = require('express');
-const { executeQuery, handleErrorResponse } = require('./baseRouter');
+const { executeQuery, handleErrorResponse, getAnimeWithSeasonsAndEpisodes } = require('./baseRouter');
 
 // Función para configurar las rutas con la conexión a la base de datos
 const setupRoutes = (router, db) => {
@@ -28,7 +28,6 @@ const setupRoutes = (router, db) => {
     router.get('/anime/:id', async (req, res) => {
         try {
             const { id } = req.params;
-            const { getAnimeWithSeasonsAndEpisodes } = require('./baseRouter');
             
             // Usar la función centralizada para obtener anime con temporadas y capítulos
             const result = await getAnimeWithSeasonsAndEpisodes(db, id);

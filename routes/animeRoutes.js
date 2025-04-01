@@ -2,7 +2,7 @@
  * Rutas para la gestión de animes
  */
 const express = require('express');
-const { executeQuery } = require('./baseRouter');
+const { executeQuery, handleErrorResponse } = require('./baseRouter');
 
 // Función para configurar las rutas con la conexión a la base de datos
 const setupRoutes = (router, db) => {
@@ -16,11 +16,11 @@ const setupRoutes = (router, db) => {
                 res.json(results);
             } else {
                 console.error('Error al obtener animes:', queryResult.error);
-                res.status(500).json({ error: queryResult.error?.message || 'Error al obtener animes' });
+                handleErrorResponse(res, 500, queryResult.error?.message || 'Error al obtener animes');
             }
         } catch (err) {
             console.error('Error inesperado:', err);
-            res.status(500).json({ error: 'Error interno del servidor' });
+            handleErrorResponse(res, 500, 'Error interno del servidor');
         }
     });
 
@@ -37,15 +37,15 @@ const setupRoutes = (router, db) => {
                 res.json(result.anime);
             } else {
                 if (result.error === 'Anime no encontrado') {
-                    res.status(404).json({ error: result.error });
+                    handleErrorResponse(res, 404, result.error);
                 } else {
                     console.error('Error al obtener anime con temporadas:', result.error);
-                    res.status(500).json({ error: result.error });
+                    handleErrorResponse(res, 500, result.error);
                 }
             }
         } catch (err) {
             console.error('Error inesperado:', err);
-            res.status(500).json({ error: 'Error interno del servidor' });
+            handleErrorResponse(res, 500, 'Error interno del servidor');
         }
     });
 
@@ -57,7 +57,7 @@ const setupRoutes = (router, db) => {
 
             // Basic Validation Example (Add more as needed)
             if (!nombre || estado === undefined) {
-                 return res.status(400).json({ error: 'Nombre y estado son requeridos.' });
+                 return handleErrorResponse(res, 400, 'Nombre y estado son requeridos.');
             }
 
             const queryResult = await executeQuery(
@@ -71,18 +71,15 @@ const setupRoutes = (router, db) => {
                 res.status(201).json({ message: 'Anime creado exitosamente', id: insertResult.insertId }); // Return the new ID
             } else {
                 console.error('Error al crear anime:', queryResult.error);
-                res.status(500).json({
-                    error: queryResult.error?.message || 'Error al crear anime',
-                    details: queryResult.details // Keep details if queryHandler provides them
-                });
+                handleErrorResponse(res, 500, queryResult.error?.message || 'Error al crear anime', queryResult.details);
             }
         } catch (err) {
             console.error('Error inesperado:', err);
              // Handle specific DB errors like duplicate entry if possible
              if (err.code === 'ER_DUP_ENTRY') {
-                 return res.status(409).json({ error: 'Ya existe un anime con ese nombre u otro campo único.' });
+                 return handleErrorResponse(res, 409, 'Ya existe un anime con ese nombre u otro campo único.');
              }
-            res.status(500).json({ error: 'Error interno del servidor' });
+            handleErrorResponse(res, 500, 'Error interno del servidor');
         }
     });
 
@@ -105,7 +102,7 @@ const setupRoutes = (router, db) => {
 
             const fieldKeys = Object.keys(fieldsToUpdate);
             if (fieldKeys.length === 0) {
-                return res.status(400).json({ error: 'No se proporcionaron campos para actualizar.' });
+                return handleErrorResponse(res, 400, 'No se proporcionaron campos para actualizar.');
             }
 
             const setClause = fieldKeys.map(key => `${key} = ?`).join(', ');
@@ -123,7 +120,7 @@ const setupRoutes = (router, db) => {
                     // Check if anime exists before declaring not found
                     const checkExist = await executeQuery(db, 'SELECT id FROM catalogo WHERE id = ?', [id]);
                      if (checkExist.success && checkExist.result[0].length === 0) {
-                         res.status(404).json({ error: 'Anime no encontrado para actualizar.' });
+                         handleErrorResponse(res, 404, 'Anime no encontrado para actualizar.');
                      } else {
                          // This case might mean the data sent was the same as existing data
                          res.json({ message: 'Anime actualizado exitosamente (sin cambios detectados).' });
@@ -131,17 +128,14 @@ const setupRoutes = (router, db) => {
                  }
             } else {
                 console.error('Error al actualizar anime:', queryResult.error);
-                res.status(500).json({
-                    error: queryResult.error?.message || 'Error al actualizar anime',
-                    details: queryResult.details
-                });
+                handleErrorResponse(res, 500, queryResult.error?.message || 'Error al actualizar anime', queryResult.details);
             }
         } catch (err) {
             console.error('Error inesperado:', err);
              if (err.code === 'ER_DUP_ENTRY') {
-                 return res.status(409).json({ error: 'La actualización resultaría en un valor duplicado para un campo único.' });
+                 return handleErrorResponse(res, 409, 'La actualización resultaría en un valor duplicado para un campo único.');
              }
-            res.status(500).json({ error: 'Error interno del servidor' });
+            handleErrorResponse(res, 500, 'Error interno del servidor');
         }
     });
 
@@ -161,19 +155,19 @@ const setupRoutes = (router, db) => {
                  if (deleteResult.affectedRows > 0) {
                      res.json({ message: 'Anime eliminado exitosamente' });
                  } else {
-                     res.status(404).json({ error: 'Anime no encontrado para eliminar.' }); // If check wasn't done before
+                    handleErrorResponse(res, 404, 'Anime no encontrado para eliminar.');
                  }
             } else {
                 console.error('Error al eliminar anime:', queryResult.error);
                  // Handle foreign key constraint errors if necessary (e.g., cannot delete anime if seasons exist)
                  if (queryResult.error?.code === 'ER_ROW_IS_REFERENCED_2') {
-                    return res.status(409).json({ error: 'No se puede eliminar el anime porque tiene temporadas asociadas.' });
+                    return handleErrorResponse(res, 409, 'No se puede eliminar el anime porque tiene temporadas asociadas.');
                  }
-                res.status(500).json({ error: queryResult.error?.message || 'Error al eliminar anime' });
+                handleErrorResponse(res, 500, queryResult.error?.message || 'Error al eliminar anime');
             }
         } catch (err) {
             console.error('Error inesperado:', err);
-            res.status(500).json({ error: 'Error interno del servidor' });
+            handleErrorResponse(res, 500, 'Error interno del servidor');
         }
     });
 };

@@ -17,6 +17,75 @@ import {
  * Initialize the anime form
  * @param {string} containerId - ID of the container element to inject the form
  */
+/**
+ * Generic function to get form data from modal elements
+ * @param {Object} fieldMap - Object mapping data fields to DOM element IDs
+ * @param {boolean} getElements - If true, returns DOM elements instead of values
+ * @returns {Object} - Object containing form data or DOM elements
+ */
+function getFormData(fieldMap, getElements = false) {
+  const formElements = {};
+  const allValues = {};
+  
+  // Get all DOM elements based on the provided field map
+  Object.keys(fieldMap).forEach(dataKey => {
+    const elementId = fieldMap[dataKey];
+    const element = document.querySelector(`#${elementId}`);
+    if (element) {
+      formElements[dataKey] = element;
+      allValues[dataKey] = element.getInputValues();
+    }
+  });
+  
+  return getElements ? formElements : { ...allValues };
+}
+
+// Implementation for anime form
+function getModaldata(getElements = false) {
+  const fieldMap = {
+    "idCatalogo": "form_id",
+    "nombreCatalogo": "nombreCatalogo",
+    "estadoCatalogo": "estadoCatalogo",
+    "imagenFondoCatalogo": "imagenFondoCatalogo", 
+    "descripcionCatalogo": "descripcionCatalogo",
+    "nsfwCatalogo": "nsfwCatalogo",
+    "trailerCatalogo": "trailerCatalogo",
+    "id": "form_id"
+  };
+  
+  return getFormData(fieldMap, getElements);
+}
+
+// Implementation for season form
+function getseasonModaldata(getElements = false) {
+  const fieldMap = {
+    "id": "form_id",
+    "nombre": "season_name",
+    "numero": "season_num",
+    "portada": "season_portada",
+    "descripcion": "season_descripcion",
+    "nsfw": "season_nsfw",
+    "temporadaId": "temporadaId"
+  };
+  
+  return getFormData(fieldMap, getElements);
+}
+
+// Implementation for episode form
+function getEpisodeModalData(getElements = false) {
+  const fieldMap = {
+    "animeId": "animeId",
+    "temporadaId": "temporadaId",
+    "numero": "numeroCapitulo",
+    "titulo": "tituloCapitulo",
+    "descripcion": "descripcionCapitulo",
+    "imagen": "imagenCapitulo",
+    "path": "pathCapitulo",
+    "idCapitulo": "form_id"
+  };
+  
+  return getFormData(fieldMap, getElements);
+}
 const stateObject = {
   "emision": 1,
   "finalizado": 2,
@@ -119,35 +188,7 @@ function initanimeForm(containerId) {
   animeForm.init(containerId);
   return animeForm;
 }
-function getModaldata(getelements = false) {
-  let allvalues = [];
-  const anime_name = document.querySelector('#nombreCatalogo');
-  const anime_statenum = document.querySelector('#estadoCatalogo');
-  const anime_imgurl = document.querySelector('#imagenFondoCatalogo');
-  const anime_description = document.querySelector('#descripcionCatalogo');
-  const anime_nsfw = document.querySelector('#nsfwCatalogo');
-  const anime_trailer = document.querySelector('#trailerCatalogo');
-  const anime_id = document.querySelector('#form_id');
-//const form_id = document.querySelector('#form_id');
-  const formelements = {
-    "idCatalogo": anime_id,
-    'nombreCatalogo': anime_name,
-    'estadoCatalogo': anime_statenum,
-    'imagenFondoCatalogo': anime_imgurl,
-    'descripcionCatalogo': anime_description,
-    'nsfwCatalogo': anime_nsfw,
-    'trailerCatalogo': anime_trailer,
-    "id": anime_id,
-  }
-  Object.keys(formelements).forEach(key => {
-    allvalues[key] = formelements[key].getInputValues();
-    // format form with resetInputValues
-    //  formelements[key].resetInputValues();
-  });
-  //console.log(formelements);
-  if (getelements) return formelements;
-  return { ...allvalues };
-}
+
 function validateModaldata(data,values) {
   let isValid = true;
   Object.keys(data).forEach(key => {
@@ -269,33 +310,7 @@ function initSeasonForm(containerId) {
   seasonForm.init(containerId);
   return seasonForm;
 }
-function getseasonModaldata(getelements = false) {
-  let allvalues = [];
-  const season_name = document.querySelector('#season_name');
-  const season_num = document.querySelector('#season_num');
-  const season_portada = document.querySelector('#season_portada');
-  const season_descripcion = document.querySelector('#season_descripcion');
-  const season_nsfw = document.querySelector('#season_nsfw');
-  const anime_id = document.querySelector('#form_id');
-  const season_id = document.querySelector('#temporadaId');
-  const formelements = {
-    "id": anime_id,
-    'nombre': season_name,
-    'numero': season_num,
-    'portada': season_portada,
-    'descripcion': season_descripcion,
-    'nsfw': season_nsfw,
-    'temporadaId': season_id,
-  }
-  Object.keys(formelements).forEach(key => {
-    allvalues[key] = formelements[key].getInputValues();
-    // format form with resetInputValues
-    //  formelements[key].resetInputValues();
-  });
-  //console.log(formelements);
-  if (getelements) return formelements;
-  return { ...allvalues };
-}
+
 const episodeRequiredFields = [
   "numero",
   "titulo",
@@ -412,35 +427,7 @@ function initEpisodeForm(containerId) {
   // Return the instance for potential further interaction
   return episodeForm;
 }
-function getEpisodeModalData(getelements = false) {
-  let allvalues = [];
-  const numeroCapitulo = document.querySelector('#numeroCapitulo');
-  const tituloCapitulo = document.querySelector('#tituloCapitulo');
-  const descripcionCapitulo = document.querySelector('#descripcionCapitulo');
-  const imagenCapitulo = document.querySelector('#imagenCapitulo');
-  const pathCapitulo = document.querySelector('#pathCapitulo');
-  const animeId = document.querySelector('#animeId');
-  const temporadaId = document.querySelector('#temporadaId');
-  const idCapitulo = document.querySelector('#form_id');
-  const formelements = {
-    "animeId": animeId,
-    "temporadaId": temporadaId,
-    'numero': numeroCapitulo,
-    'titulo': tituloCapitulo,
-    'descripcion': descripcionCapitulo,
-    'imagen': imagenCapitulo,
-    'path': pathCapitulo,
-    'idCapitulo': idCapitulo,
-  }
-  Object.keys(formelements).forEach(key => {
-    allvalues[key] = formelements[key].getInputValues();
-    // format form with resetInputValues
-    //  formelements[key].resetInputValues();
-  });
-  //console.log(formelements);
-  if (getelements) return formelements;
-  return {...allvalues };
-}
+
 const miBarra = document.getElementById('mi-barra');
 const second_bar = document.getElementById('second_bar');
 function setupTableEventListeners() {
@@ -450,7 +437,9 @@ function setupTableEventListeners() {
       const item = event.detail; // El objeto completo está en event.detail
       console.log(item)
       const editform =  initanimeForm("modal-form-catalogo");
-      editAnime(item.id, editform)
+      editAnime(item.id, (editdata)=>{
+              editform.setFormData(editdata);
+      });
   });
   miTabla.addEventListener('delete-item', (event) => {
     const DeleteItem = event.detail;

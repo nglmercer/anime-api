@@ -38,6 +38,7 @@ initializeRouter().then(() => {
 
             // Formatear la respuesta
             const capitulos = capitulosDb.map(cap => ({
+                ...cap,
                 idCapitulo: cap.id,
                 numeroCapitulo: cap.numero,
                 tituloCapitulo: cap.titulo,
@@ -48,7 +49,9 @@ initializeRouter().then(() => {
                 meGustas: cap.me_gustas,
                 noMeGustas: cap.no_me_gustas,
                 reproducciones: cap.reproducciones,
-                temporadaId: cap.temporada_id
+                temporadaId: cap.temporada_id,
+                animeId: cap.animeId,
+                
             }));
 
             res.json(capitulos);

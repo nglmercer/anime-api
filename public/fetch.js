@@ -90,7 +90,7 @@ async function saveAnime(anime, cb = () => {}) {
   async function getEpisodesColumn(data, cb = () => {}) {
     const id = data.animeId;
     try {
-      const response = await fetch(BaseUrl +'/api/anime/'+id+"/temporadas/"+data.idTemporada+"/capitulos", {
+      const response = await fetch(BaseUrl +'/api/anime/'+id+"/temporadas/"+data.temporadaId+"/capitulos", {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -106,8 +106,8 @@ async function saveAnime(anime, cb = () => {}) {
   }
   async function saveSeason(data, cb = () => {}) {
     // estructure { numero, nombre, descripcion, portada, nsfw = false }
-    const method = data.idTemporada ? 'PUT' : 'POST';
-    const url = data.idTemporada ? `/api/anime/${data.id}/temporadas/${data.idTemporada}` : '/api/anime/'+data.id+"/temporadas";
+    const method = data.temporadaId ? 'PUT' : 'POST';
+    const url = data.temporadaId ? `/api/anime/${data.id}/temporadas/${data.temporadaId}` : '/api/anime/'+data.id+"/temporadas";
     try {
       const response = await fetch(BaseUrl + url, {
         method: method,
@@ -131,10 +131,10 @@ async function saveAnime(anime, cb = () => {}) {
             imagen, 
             path, */
     const method = data.idCapitulo ? 'PUT' : 'POST';
-    const url = data.idCapitulo ? `/api/anime/${data.animeId}/temporadas/${data.idTemporada}/capitulos/${data.idCapitulo}` : '/api/anime/'+data.animeId+"/temporadas/"+data.idTemporada+"/capitulos";
+    const url = data.idCapitulo ? `/api/anime/${data.animeId}/temporadas/${data.temporadaId}/capitulos/${data.idCapitulo}` : '/api/anime/'+data.animeId+"/temporadas/"+data.temporadaId+"/capitulos";
     try {
       console.log("saveEpisode", data, url, method);
-      const response = await fetch(BaseUrl + `/api/anime/${data.animeId}/temporadas/${data.idTemporada}/capitulos`, {
+      const response = await fetch(BaseUrl + `/api/anime/${data.animeId}/temporadas/${data.temporadaId}/capitulos`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -166,12 +166,12 @@ async function saveAnime(anime, cb = () => {}) {
     }
   }
   async function deleteSeason(data, cb = () => {}) {
-    const { animeId, idTemporada } = data;
-    if (!animeId || !idTemporada) return;
+    const { animeId, temporadaId } = data;
+    if (!animeId || !temporadaId) return;
     if (confirm('¿Estás seguro de eliminar esta temporada?')) {
         try {
           ///anime/:animeId/temporadas/:temporadaId
-            const response = await fetch(`/api/anime/${animeId}/temporadas/${idTemporada}`, {
+            const response = await fetch(`/api/anime/${animeId}/temporadas/${temporadaId}`, {
                 method: 'DELETE'
             });
             

@@ -55,7 +55,7 @@ initializeRouter().then(() => {
             const temporadasConCapitulos = temporadasDb.map(temp => {
                 // Map DB columns (snake_case) to desired JSON keys (camelCase or consistent)
                 const temporadaFormateada = {
-                    idTemporada: temp.id,
+                    temporadaId: temp.id,
                     numeroTemporada: temp.numero,
                     nombreTemporada: temp.nombre,
                     descripcionTemporada: temp.descripcion,
@@ -127,7 +127,7 @@ initializeRouter().then(() => {
                 const [insertResult] = queryResult.result;
                 res.status(201).json({
                     message: 'Temporada creada exitosamente',
-                    idTemporada: insertResult.insertId, // Return the new ID
+                    temporadaId: insertResult.insertId, // Return the new ID
                     animeId: animeId
                 });
             } else {
@@ -186,7 +186,7 @@ initializeRouter().then(() => {
             // Formatear la respuesta
             const temporada = temporadaDb[0];
             const temporadaFormateada = {
-                idTemporada: temporada.id,
+                temporadaId: temporada.id,
                 numeroTemporada: temporada.numero,
                 nombreTemporada: temporada.nombre,
                 descripcionTemporada: temporada.descripcion,

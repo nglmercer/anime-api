@@ -126,6 +126,9 @@ initializeRouter().then(() => {
             no_me_gustas = 0, 
             reproducciones = 0 
         } = req.body;
+        
+        // Convertir descripción de array a string si es necesario
+        const descripcionStr = Array.isArray(descripcion) ? descripcion.join(' ') : descripcion;
 
         // Validación básica
         if (numero === undefined || !titulo) {
@@ -134,6 +137,10 @@ initializeRouter().then(() => {
         const num = parseInt(numero);
         if (isNaN(num) || num <= 0) {
             return res.status(400).json({ error: 'El número de capítulo debe ser un entero positivo.' });
+        }
+        // Validar que el número no exceda el límite máximo de INT en MySQL
+        if (num > 2147483647) {
+            return res.status(400).json({ error: 'El número de capítulo es demasiado grande. El valor máximo permitido es 2,147,483,647.' });
         }
 
         try {
@@ -169,7 +176,7 @@ initializeRouter().then(() => {
                 temporadaId, 
                 num, 
                 titulo, 
-                descripcion, 
+                descripcionStr, 
                 imagen, 
                 path, 
                 duracion_minutos, 

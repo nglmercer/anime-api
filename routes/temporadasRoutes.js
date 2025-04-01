@@ -11,50 +11,14 @@ const setupRoutes = (router, db) => {
     router.get('/anime/:animeId/temporadas', async (req, res) => {
         const { animeId } = req.params;
         try {
-            // 0. Check if Anime exists
-            const animeCheck = await checkEntityExists(db, 'catalogo', 'id', animeId);
-            if(!animeCheck.success || !animeCheck.exists) {
-                return handleErrorResponse(res, 404, 'Anime no encontrado.');
-            }
-
-            // 1. Get all seasons for the anime
-            const temporadasQuery = 'SELECT * FROM temporadas WHERE anime_id = ? ORDER BY numero ASC';
-            const temporadasResult = await executeQuery(db, temporadasQuery, [animeId]);
-
-            if (!temporadasResult.success) {
-                console.error('Error al obtener temporadas:', temporadasResult.error);
-                return handleErrorResponse(res, 500, 'Error al obtener temporadas');
-            }
-
-            const [temporadasDb] = temporadasResult.result;
-
-            if (temporadasDb.length === 0) {
-                return res.json([]); // Anime exists, but no seasons found
-            }
-
-            // 2. Get all chapters for these seasons efficiently using the common function
-            const temporadaIds = temporadasDb.map(t => t.id);
-            if (temporadaIds.length === 0) { // Should not happen if temporadasDb > 0, but safe check
-                res.json(temporadasDb.map(temp => formatTemporada(temp, []))); // Return seasons with empty chapters
-                return;
+            // Usar la función getAnimeWithSeasonsAndEpisodes que ya implementa toda la lógica
+            const result = await getAnimeWithSeasonsAndEpisodes(db, animeId);
+            
+            if (!result.success) {
+                return handleErrorResponse(res, result.error.includes('no encontrado') ? 404 : 500, result.error);
             }
             
-            const capitulosResult = await getCapitulosForTemporadas(db, temporadaIds);
-
-            if (!capitulosResult.success) {
-                console.error('Error al obtener capítulos:', capitulosResult.error);
-                return handleErrorResponse(res, 500, 'Error al obtener capítulos');
-            }
-
-            const capitulos = capitulosResult.capitulos;
-
-            // 3. Structure the response using the common format function
-            const temporadasConCapitulos = temporadasDb.map(temp => {
-                // Filter chapters for this season
-                const capitulosTemporada = capitulos.filter(cap => cap.temporada_id === temp.id);
-                // Use the common format function
-                return formatTemporada(temp, capitulosTemporada);
-            });
+            res.json(result.anime.temporadas);
 
             res.json(temporadasConCapitulos);
 
@@ -142,31 +106,28 @@ const setupRoutes = (router, db) => {
         const { numero, nombre, descripcion, portada, nsfw } = req.body;
 
         try {
-            // Verificar que el anime existe usando checkEntityExists
-            const animeCheck = await checkEntityExists(db, 'catalogo', 'id', animeId);
-            if (!animeCheck.success || !animeCheck.exists) {
-                return handleErrorResponse(res, 404, 'Anime no encontrado para añadir temporada.');
-            }
-
-            // Verificar que la temporada existe y pertenece al anime
+            // Verificar que el anime y temporada existen usando checkEntityExists
             const temporadaCheck = await checkEntityExists(db, 'temporadas', 'id', temporadaId, 'anime_id', animeId);
             if (!temporadaCheck.success || !temporadaCheck.exists) {
-                return handleErrorResponse(res, 404, 'Temporada no encontrada para este anime.');
+                return handleErrorResponse(res, 404, temporadaCheck.error || 'Temporada no encontrada para este anime');
             }
 
-            // Construir la consulta de actualización dinámicamente
-            const fieldsToUpdate = {};
+            // Validar número de temporada si se proporciona
             if (numero !== undefined) {
                 const num = parseInt(numero);
                 if (isNaN(num) || num <= 0) {
-                    return handleErrorResponse(res, 400, 'El número de temporada debe ser un entero positivo.');
+                    return handleErrorResponse(res, 400, 'El número de temporada debe ser un entero positivo');
                 }
-                fieldsToUpdate.numero = num;
             }
-            if (nombre !== undefined) fieldsToUpdate.nombre = nombre;
-            if (descripcion !== undefined) fieldsToUpdate.descripcion = descripcion;
-            if (portada !== undefined) fieldsToUpdate.portada = portada;
-            if (nsfw !== undefined) fieldsToUpdate.nsfw = nsfw;
+
+            // Construir consulta de actualización
+            const fieldsToUpdate = {
+                ...(numero !== undefined && {numero: parseInt(numero)}),
+                ...(nombre !== undefined && {nombre}),
+                ...(descripcion !== undefined && {descripcion}),
+                ...(portada !== undefined && {portada}),
+                ...(nsfw !== undefined && {nsfw})
+            };
 
             const fieldKeys = Object.keys(fieldsToUpdate);
             if (fieldKeys.length === 0) {

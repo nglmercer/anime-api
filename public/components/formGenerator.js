@@ -211,4 +211,4 @@ class FrmGen {
     }
   }
 }
-export { FormGenerator, FrmGen };
+export { FrmGen };

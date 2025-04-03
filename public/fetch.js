@@ -125,3 +125,14 @@ export const deleteEpisode = async (data, callback = () => {}) => {
   await apiRequest(`/api/anime/${animeId}/temporadas/${temporadaId}/capitulos/${capituloId}`, 'DELETE');
   callback();
 };
+export const returnAnimes = async (cb =()=>{}) => {
+  const urltoFetch = BASE_URL+'/api/anime';
+  try {
+      const response = await fetch(urltoFetch);
+      const animes = await response.json();
+      if (cb) cb(animes)
+      return animes;
+  } catch (error) {
+      console.error('Error al cargar animes:', error);
+  }
+}

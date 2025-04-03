@@ -1,94 +1,41 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ejemplo ObjectGrid y GridManager</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; }
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+        }
+
         /* Estilo adicional para botones de prueba */
-        .action-button { background-color: #e0e0e0; }
-        .highlight-btn { background-color: yellowgreen; color: black; }
+        .action-button {
+            background-color: #e0e0e0;
+        }
+
+        .highlight-btn {
+            background-color: yellowgreen;
+            color: black;
+        }
     </style>
 
     <script src="./components/table.js"></script>
     <script src="./components/modal.js"></script>
+    <script src="./index.js" type="module"></script>
+
 </head>
+
 <body>
 
     <h1>Gestor de Grids</h1>
-    <object-edit-form id="user-editor"></object-edit-form>
 
     <!-- Example buttons to interact with the form -->
-    <dynamic-object-display id="user-profile" header-key="name" darkmode></dynamic-object-display>
+    <div class="grid" id="grid-manager">
 
-    <script>
-        const profileDisplay = document.getElementById('user-profile');
-    
-        // Same field configs as before
-        const userFieldConfigs = {
-            id: { label: 'User ID', type: 'number', readonly: true }, // Readonly in edit mode
-            name: { label: 'Full Name', type: 'text', required: true, placeholder: 'Enter full name' },
-            email: { label: 'Email Address', type: 'email', required: true, title: 'Enter a valid email address' },
-            age: { label: 'Age', type: 'number', min: 18, title: 'Must be 18 or older' },
-            role: {
-                label: 'Role',
-                type: 'select',
-                required: true,
-                options: [
-                    { label: 'Select Role...', value: '' },
-                    { label: 'Administrator', value: 'admin' },
-                    { label: 'Editor', value: 'editor' },
-                    { label: 'Viewer', value: 'viewer' }
-                ]
-            },
-            isActive: { label: 'Active User', type: 'switch', trueLabel: 'Active', falseLabel: 'Inactive' },
-            bio: { label: 'Biography', type: 'textarea', placeholder: 'Tell us about yourself...' }
-        };
-    
-        // Initial user data
-        let currentUserData = {
-            id: 456,
-            name: 'Jane Smith',
-            email: 'jane.s@sample.net',
-            age: 28,
-            role: 'admin',
-            isActive: false,
-            bio: 'Web developer and avid reader.'
-        };
-    
-        // Set initial data and config
-        profileDisplay.setConfig(currentUserData, userFieldConfigs);
-    
-        // Add a custom action (shows up in display mode only)
-        profileDisplay.addAction('view-posts', 'View User Posts', 'btn-secondary'); // Example class
-    
-        // --- Event Listeners for the Dynamic Display ---
-    
-        profileDisplay.addEventListener('item-updated', (event) => {
-            console.log('Profile Updated!', event.detail);
-            // Update our local data store (important!)
-            currentUserData = event.detail;
-            alert('Profile saved successfully!');
-            // Maybe update other parts of the UI
-        });
-    
-        profileDisplay.addEventListener('delete-item', (event) => {
-            console.log('Delete Requested:', event.detail);
-            if (confirm(`Are you sure you want to delete user ${event.detail.name}?`)) {
-                alert(`Simulating delete for user ID ${event.detail.id}...`);
-                // Call your API to delete the user
-                // On success, you might remove this component from the DOM
-                // profileDisplay.remove();
-            }
-        });
-    
-        profileDisplay.addEventListener('view-posts', (event) => {
-            console.log('Custom Action: View Posts for', event.detail);
-            alert(`Simulating navigation to posts for user ${event.detail.name}`);
-            // Perform navigation or other custom logic
-        });
-    
-    </script>
+    </div>
 </body>
+
 </html>

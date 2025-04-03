@@ -2,7 +2,7 @@
  * anime Form Implementation
  * This file creates a form for managing anime triggers using the FormGenerator class
  */
-import { FormGenerator, FrmGen } from './components/formGenerator.js';
+import { FrmGen } from './components/formGenerator.js';
 import {
   saveAnime,
   editAnime,
@@ -12,7 +12,8 @@ import {
   deleteSeason,
   getEpisodesColumn,
   saveEpisode,
-  deleteEpisode
+  deleteEpisode,
+  returnAnimes
 } from './fetch.js';
 /**
  * Initialize the anime form
@@ -211,14 +212,9 @@ function getkeysObject(data, exclude = []) {
   return keys;
 }
 async function loadAnimes() {
-  try {
-      const response = await fetch('http://localhost:3001/api/anime');
-      const animes = await response.json();
+  returnAnimes((animes)=>{
       miTabla.setData(animes,["id","nombre"])
-
-  } catch (error) {
-      console.error('Error al cargar animes:', error);
-  }
+  })
 }
 /** 
 descripcion: "eqweqwe"

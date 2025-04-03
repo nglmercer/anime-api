@@ -2,7 +2,7 @@
  * anime Form Implementation
  * This file creates a form for managing anime triggers using the FormGenerator class
  */
-import { FormGenerator } from './components/formGenerator.js';
+import { FormGenerator, FrmGen } from './components/formGenerator.js';
 import {
   saveAnime,
   editAnime,
@@ -185,7 +185,7 @@ function initanimeForm(containerId) {
   };
 
   // Create the form generator and initialize it
-  const animeForm = new FormGenerator(animeFormConfig);
+  const animeForm = new FrmGen(animeFormConfig);
   animeForm.init(containerId);
   return animeForm;
 }
@@ -307,7 +307,7 @@ function initSeasonForm(containerId) {
     }
 
   };
-  const seasonForm = new FormGenerator(seasonFormConfig);
+  const seasonForm = new FrmGen(seasonFormConfig);
   seasonForm.init(containerId);
   return seasonForm;
 }
@@ -323,7 +323,7 @@ const episodeRequiredFields = [
 /**
  * Initializes the form for creating/editing an Episode.
  * @param {string} containerId - The ID of the HTML element where the form should be rendered.
- * @returns {FormGenerator} The initialized form generator instance.
+ * @returns {FrmGen} The initialized form generator instance.
  */
 function initEpisodeForm(containerId) {
   // Define the form configuration for an Episode
@@ -422,7 +422,7 @@ function initEpisodeForm(containerId) {
   };
 
   // Create the form generator instance with the configuration
-  const episodeForm = new FormGenerator(episodeFormConfig);
+  const episodeForm = new FrmGen(episodeFormConfig);
   // Initialize the form in the specified container
   episodeForm.init(containerId);
   // Return the instance for potential further interaction
@@ -438,8 +438,9 @@ function setupTableEventListeners() {
       const item = event.detail; // El objeto completo está en event.detail
       console.log(item)
       const editform =  initanimeForm("modal-form-catalogo");
+      editform.show();
       editAnime(item.id, (editdata)=>{
-              editform.setFormData(editdata);
+              editform.setData(editdata);
       });
   });
   miTabla.addEventListener('delete-item', (event) => {
@@ -474,7 +475,7 @@ function setupTableEventListeners() {
       if (action === 'add' && data) {
           console.log('Botón "Añadir" ha sido presionado con datos:', data);
           const modal =  initSeasonForm("modal-form-season");
-          modal.setFormData({id: data.id});
+          modal.setData({id: data.id});
       }
   });
   secondTabla.addEventListener('edit-item', (event) => {
@@ -491,7 +492,8 @@ function setupTableEventListeners() {
       console.log(editdata)
 
       const editform =  initSeasonForm("modal-form-season");
-      editform.setFormData(editdata);
+      editform.show();
+      editform.setData(editdata);
   });
   secondTabla.addEventListener('delete-item', (event) => {
     const DeleteItem = event.detail;
@@ -514,7 +516,8 @@ function setupTableEventListeners() {
       if (action === 'add' && data) {
           console.log('Botón "Añadir" ha sido presionado con datos:', data);
           const modal =  initEpisodeForm("modal-form-episode");
-          modal.setFormData({animeId: data.animeId, temporadaId: data.temporadaId});
+          modal.show();
+          modal.setData({animeId: data.animeId, temporadaId: data.temporadaId});
       }
   });
   thirdTabla.addEventListener('edit-item', (event) => {
@@ -526,7 +529,8 @@ function setupTableEventListeners() {
       console.log(editdata)
 
       const editform =  initEpisodeForm("modal-form-episode");
-      editform.setFormData(editdata);
+      editform.show();
+      editform.setData(editdata);
   });
   thirdTabla.addEventListener('delete-item', (event) => {
     const DeleteItem = event.detail;

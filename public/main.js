@@ -5,6 +5,7 @@ import {initanimeForm} from './createItemform.js';
 // Cargar los animes al iniciar la página
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelector("#abrir-modal-catalogo-btn").addEventListener("click",()=>{
-        initanimeForm("modal-form-catalogo");
+        const openAnimeForm = initanimeForm("modal-form-catalogo");
+        openAnimeForm.show();
     });
 });

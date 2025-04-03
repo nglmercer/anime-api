@@ -1,221 +1,214 @@
+class FrmGen {
+  constructor(cfg) {
+    if (!cfg || !cfg.modalId || !cfg.fields || !Array.isArray(cfg.fields)) {
+      throw new Error("FrmGen cfg requires 'modalId' and 'fields' array.");
+    }
 
-class FormGenerator {
-  /**
-   * Create a new form generator
-   * @param {Object} config - Configuration for the form
-   * @param {string} config.formId - ID for the form container
-   * @param {string} config.modalId - ID for the modal container
-   * @param {Array} config.fields - Array of field configurations
-   * @param {Object} config.validation - Validation rules for fields
-   */
-  constructor(config) {
-    this.config = config;
-    this.formId = config.formId;
-    this.modalId = config.modalId;
-    this.fields = config.fields;
-    this.validation = config.validation || {};
-    this.dbStore = null;
-    this.formElements = {};
-    this.savecallback = config.savecallback;
+    this.cfg = cfg;
+    this.mId = cfg.modalId;
+    this.flds = cfg.fields;
+    // Naming consistency: Use 'saveCallback'
+    this.svCb = typeof cfg.saveCallback === 'function' ? cfg.saveCallback : (fData) => {
+      console.warn("No saveCallback provided. Form data:", fData);
+    };
+    this.cnclCb = typeof cfg.cancelCallback === 'function' ? cfg.cancelCallback : () => {
+      console.log("Cancel action triggered.");
+      this.hide(); // Default cancel action hides the modal
+    };
+
+    this.mdl = null;
+    this.dlg = null;
+    this.fElems = {}; // Stores references to c-inp elements
+
+    this._hSv = this._hSv.bind(this);
+    this._hCncl = this._hCncl.bind(this);
   }
 
+  init(cId) {
+    // ... (rest of init method remains largely the same)
 
-  /**
-   * Generate the HTML for the form
-   * @returns {string} HTML string for the form
-   */
-  generateFormHTML() {
-    let html = `
-    <div class="form ${this.formId}" id="form_${this.formId}">
-    `;
+    this.mdl = document.createElement('dlg-cont');
+    this.mdl.id = this.mId;
+    if (this.cfg.required) {
+      this.mdl.setAttribute('required', '');
+    }
 
-    // Generate HTML for each field
-    this.fields.forEach(field => {
-      html += `
-      <div class="row" id="${field.id}_container">
-        <span id="${field.id}-label" lang="en">${field.label}</span>
-        <custom-input
-          type="${field.type}"
-          id="${field.id}"
-          name="${field.id}"
-          placeholder="${field.placeholder || ''}"
-          ${field.options ? `options='${field.options}'` : ''}
-          ${field.value ? `value="${field.value}"` : ''}
-          ${field.required ? 'required' : ''}
-        ></custom-input>
-      </div>
-      `;
+    this.dlg = document.createElement('c-dlg');
+    this.dlg.setAttribute('title', this.cfg.title || 'Formulario'); // Use Spanish?
+    if (this.cfg.description) {
+      this.dlg.setAttribute('description', this.cfg.description);
+    }
+    const th = this.cfg.theme || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    this.dlg.setAttribute('theme', th);
 
-      // Initial display state for conditional fields
-      if (field.conditionalDisplay) {
-        const { parentField, parentValue, displayWhen } = field.conditionalDisplay;
-        // We'll handle the actual display logic in setupEventListeners()
+    this.flds.forEach(f => {
+      if (!f.id) {
+        console.warn("Form field skipped: Missing 'id'.", f);
+        return;
       }
+      const inpEl = document.createElement('c-inp');
+      inpEl.setAttribute('id', f.id); // Use field id as element id
+      inpEl.setAttribute('type', f.type || 'text');
+      // Use 'name' for form submission semantics, 'id' for retrieval key
+      inpEl.setAttribute('name', f.name || f.id);
+      // Placeholder, value, required, disabled, readonly, pattern, title
+      if (f.placeholder) inpEl.setAttribute('placeholder', f.placeholder);
+      if (f.value !== undefined) inpEl.setAttribute('value', String(f.value)); // Ensure string value for attribute
+      if (f.required) inpEl.setAttribute('required', '');
+      if (f.disabled) inpEl.setAttribute('disabled', '');
+      if (f.readonly) inpEl.setAttribute('readonly', '');
+      if (f.pattern) inpEl.setAttribute('pattern', f.pattern);
+      if (f.title) inpEl.setAttribute('title', f.title); // For validation message
+      if (th === 'dark') inpEl.setAttribute('darkmode', ''); // Pass theme to input
+
+      if ((f.type === 'select' || f.type === 'radio') && f.options) {
+        // Ensure options are stringified correctly
+        const optsString = typeof f.options === 'string' ? f.options : JSON.stringify(f.options);
+        inpEl.setAttribute('options', optsString);
+      }
+
+      this.fElems[f.id] = inpEl; // Store reference using field id
+      this.dlg.appendChild(inpEl);
     });
 
-    // Add hidden ID field
-    html += `
-      <custom-input
-        type="number"
-        id="form_id"
-        name="form_id"
-      ></custom-input>
-    </div>
-    `;
-
-    return html;
-  }
-
-  /**
-   * Generate the modal HTML with the form inside
-   * @returns {string} HTML string for the modal
-   */
-  generateModalHTML() {
-    return `
-    <dialog-container id="${this.modalId}" style="padding: 4px; margin: 4px;">
-      ${this.generateFormHTML()}
-      <custom-dialog id="${this.modalId}_dialog"
-        style="border: 0px solid red;"
-        theme="dark">
-      </custom-dialog>
-    </dialog-container>
-    `;
-  }
-
-  /**
-   * Initialize the form with event listeners and database connection
-   * @param {string} containerId - ID of the container element to inject the form
-   */
-  async init(containerId) {
-    // Get the container element
-    const container = document.getElementById(containerId);
-    if (!container) {
-      console.error(`Container element with ID ${containerId} not found`);
-      return;
-    } /* else {
-      console.log(`Container element with ID ${containerId} found`);
-    } */
-    
-    // Generate and inject the modal HTML
-    container.innerHTML = this.generateModalHTML();
-    
-    
-    // Setup UI elements
-    this.setupUI();
-    
-    // Setup event listeners
-    this.setupEventListeners();
-
-  }
-
-  /**
-   * Setup UI elements and references
-   */
-  setupUI() {
-    // Get modal elements
-    this.modal = document.querySelector(`#${this.modalId}`);
-    console.log(this.modal);
-    this.modal.show();
-    
-    this.modalDialog = document.querySelector(`#${this.modalId}_dialog`);
-    
-    // Setup dialog options
-    this.modalDialog.options = [
+    // Button options (ensure consistency)
+    this.dlg.options = [
+      // Add cancel button first if desired
       {
-        label: 'Save',
-        class: 'btn btn-sm btn-outlined save-btn',
-        callback: () => this.handleSave()
+        label: this.cfg.cancelLabel || 'Cancelar',
+        class: 'cancel-btn',
+        callback: this._hCncl // Use bound cancel handler
       },
       {
-        label: 'Cancel',
-        class: 'btn btn-sm btn-outlined save-btn',
-        callback: () => this.handleCancel()
+        label: this.cfg.saveLabel || 'Guardar',
+        class: 'save-btn',
+        callback: this._hSv // Use bound save handler
       }
+      // Add other buttons like delete if needed in config
     ];
-    
-    // Get form elements
-    this.formElements = {};
-    this.fields.forEach(field => {
-      this.formElements[field.id] = document.querySelector(`#${field.id}`);
-    });
-    
-    // Get form ID element
-    this.formIdElement = document.querySelector('#form_id');
+
+
+    this.mdl.appendChild(this.dlg);
+    const container = document.getElementById(cId);
+    if (!container) {
+      console.error(`FrmGen init failed: Container with id "${cId}" not found.`);
+      return;
+    }
+    container.appendChild(this.mdl);
+
+    // Apply theme class to the modal container itself if needed for backdrop styling etc.
+    // this.mdl.classList.add(th); // Already handled by theme inheritance? Check dlg-cont styles
   }
 
-  /**
-   * Setup event listeners for form elements
-   */
-  setupEventListeners() {
-    // Setup conditional display listeners
-    this.fields
-      .filter(field => field.conditionalDisplay)
-      .forEach(field => {
-        const { parentField, parentValue, displayWhen } = field.conditionalDisplay;
-        const parentElement = document.querySelector(`#${parentField}`);
-        const fieldContainer = document.querySelector(`#${field.id}_container`);
-        
-        // Set initial display state
-        this.updateFieldVisibility(parentElement, fieldContainer, parentValue, displayWhen);
-        
-        // Add change event listener
-        parentElement.addEventListener('change', (e) => {
-          this.updateFieldVisibility(parentElement, fieldContainer, parentValue, displayWhen);
-        });
-      });
-  }
+  _hSv() {
+    let isValid = true;
+    const fData = {}; // Object to hold form data
 
-  /**
-   * Update field visibility based on parent field value
-   * @param {HTMLElement} parentElement - The parent field element
-   * @param {HTMLElement} fieldContainer - The field container element
-   * @param {string} parentValue - The parent value to check against
-   * @param {string} displayWhen - When to display the field ('equal' or 'notEqual')
-   */
-  updateFieldVisibility(parentElement, fieldContainer, parentValue, displayWhen) {
-    const currentValue = parentElement.getInputValues();
-    const shouldDisplay = displayWhen === 'notEqual' 
-      ? currentValue !== parentValue 
-      : currentValue === parentValue;
-    
-    fieldContainer.style.display = shouldDisplay ? 'block' : 'none';
-  }
-
-  /**
-   * Handle save button click
-   */
-  handleSave() {
-    this.savecallback();
-    this.modal.hide();
-  }
-
-  /**
-   * Handle cancel button click
-   */
-  handleCancel() {
-    console.log('Cancel clicked');
-    // format all form elements
-    Object.keys(this.formElements).forEach(key => {
-      this.formElements[key].resetInputValues();
-    });
-    this.modal.hide(); // Uncomment to hide modal after cancel
-  }
-
-  setFormData(data) {
-    if (!data) return;
-    // Set field values
-    this.fields.forEach(field => {
-      const key = field.id
-      if (data[key] !== undefined) {
-        this.formElements[key].setInputValues(data[key]);
+    // Iterate through the fields defined in the config
+    this.flds.forEach(f => {
+      const el = this.fElems[f.id]; // Get the c-inp element reference
+      if (el) {
+        // Use the isValid method from c-inp
+        if (typeof el.isValid === 'function' && !el.isValid()) {
+          console.log(`Validation failed for field: ${f.id}`);
+          isValid = false;
+        }
+        // Use getVal method from c-inp, using field.id as the key
+        fData[f.id] = typeof el.getVal === 'function' ? el.getVal() : null;
+      } else {
+        console.warn(`Element not found for field id: ${f.id}`);
       }
     });
-    
-    // Set form ID
-    if (data.id !== undefined) {
-      this.formIdElement.setInputValues(data.id);
+
+    if (isValid) {
+      console.log('Form is valid. Data collected by FrmGen:', fData);
+      // Pass the collected data directly to the callback
+      this.svCb(fData);
+      // Optionally hide the modal after successful save callback execution?
+      // Depends on whether the callback handles hiding. Let's assume it might.
+      // this.hide(); // Or let the callback decide.
+    } else {
+      console.warn('Form validation failed. Please check the highlighted fields.');
+      // Optionally shake the modal or provide other feedback
+    }
+  }
+
+  _hCncl() {
+    console.log('Cancel clicked');
+    this.cnclCb(); // Execute the cancel callback
+    // Default behavior in constructor now hides, but can be overridden by cfg.cancelCallback
+  }
+
+  setData(d) {
+    if (!d || typeof d !== 'object') {
+      console.warn("setData called with invalid data:", d);
+      return;
+    }
+    console.log("FrmGen setData:", d); // Log data being set
+
+    this.flds.forEach(f => {
+      const el = this.fElems[f.id];
+      if (el) {
+        // Check if the key exists in the input data object `d`
+        // Use f.id because that's the key we used in fElems and likely in `d`
+        if (d.hasOwnProperty(f.id)) {
+          const valueToSet = d[f.id];
+          console.log(`Setting field ${f.id} with value:`, valueToSet);
+          if (typeof el.setVal === 'function') {
+            el.setVal(valueToSet);
+          } else {
+            console.warn(`Element for ${f.id} does not have setVal method.`);
+            // Fallback might not work well for all types (like checkbox, radio)
+            // el.value = valueToSet;
+          }
+        } else {
+          console.log(`Key ${f.id} not found in setData object.`);
+          // Optional: Reset field if key not provided?
+          // if (typeof el.reset === 'function') el.reset();
+        }
+      } else {
+        console.warn(`Element not found for field id: ${f.id} during setData.`);
+      }
+    });
+  }
+
+  getData() {
+    const fData = {};
+    this.flds.forEach(f => {
+      const el = this.fElems[f.id];
+      if (el) {
+        // Use getVal method from c-inp, using field.id as the key
+        fData[f.id] = typeof el.getVal === 'function' ? el.getVal() : null;
+      }
+    });
+    console.log("FrmGen getData:", fData);
+    return fData;
+  }
+
+  reset() {
+    this.flds.forEach(f => {
+      const el = this.fElems[f.id];
+      if (el && typeof el.reset === 'function') {
+        el.reset();
+      }
+    });
+    console.log("FrmGen reset completed.");
+  }
+
+  show() {
+    if (this.mdl && typeof this.mdl.show === 'function') {
+      this.mdl.show();
+    } else {
+      console.error("Cannot show modal: FrmGen not initialized or modal element invalid.");
+    }
+  }
+
+  hide() {
+    if (this.mdl && typeof this.mdl.hide === 'function') {
+      this.mdl.hide();
+    } else {
+      console.error("Cannot hide modal: FrmGen not initialized or modal element invalid.");
     }
   }
 }
-
-export { FormGenerator };
+export { FormGenerator, FrmGen };

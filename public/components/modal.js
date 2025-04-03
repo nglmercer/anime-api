@@ -1,814 +1,4 @@
-class CustomDialog extends HTMLElement {
-    constructor() {
-      super();
-      this.attachShadow({ mode: 'open', delegatesFocus: true });
-  
-      this._title = '';
-      this._description = '';
-      this._options = [];
-      this._theme = 'light';
-  
-      this.initTemplate();
-    }
-  
-    static get observedAttributes() {
-      return ['title', 'description', 'theme'];
-    }
-  
-    attributeChangedCallback(name, oldValue, newValue) {
-      if (oldValue !== newValue) {
-        switch (name) {
-          case 'tittle':
-          case 'title':
-            this._title = newValue;
-            this.shadowRoot.querySelector('.title').textContent = this._title;
-            break;
-          case 'description':
-            this._description = newValue;
-            this.shadowRoot.querySelector('.description').textContent = this._description;
-            break;
-          case 'theme':
-            this._theme = newValue;
-            this.shadowRoot.querySelector('.container').className = `container ${this._theme}`;
-            break;
-        }
-      }
-    }
-  
-    get options() {
-      return this._options;
-    }
-  
-    set options(value) {
-      this._options = value;
-      this.updateOptions();
-    }
-  
-    createStyles() {
-      return `
-        :host {
-          display: block;
-          font-family: system-ui, -apple-system, sans-serif;
-        }
-  
-        .container {
-          padding: 1.5rem;
-          border-radius: 8px;
-          transition: all 0.3s ease;
-        }
-  
-        .container.light {
-          color: #1a1a1a;
-          border: 1px solid #e5e5e5;
-        }
-  
-        .container.dark {
-          color: #ffffff;
-          border: 1px solid #333333;
-        }
-  
-        .title {
-          font-size: 1.5rem;
-          font-weight: 600;
-        }
-  
-        .description {
-          font-size: 1rem;
-          opacity: 0.8;
-          max-height: 500px;
-          overflow-y: auto;
-        }
-  
-        .options {
-          display: flex;
-          gap: 0.5rem;
-          flex-wrap: wrap;
-        }
-  
-        slot {
-          display: block;
-          margin-top: 1rem;
-        }
-                  button {
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            border: none;
-            cursor: pointer;
-            font-size: 0.875rem;
-            transition: all 0.2s ease;
-          }
-          button {
-            color: inherit;
-            background-color: inherit;
-          }
-          button:hover {
-            background-color: inherit;
-          }
-    
-          .save-btn {
-            background-color: #007bff;
-            color: white;
-          }
-          .save-btn:hover {
-            background-color: #0056b3;
-          }
-          .cancel-btn {
-            background-color: #e5e5e5;
-            color: black;
-          }
-          .cancel-btn:hover {
-            background-color: #0056b3;
-          }
-          .save-btn:hover {
-            background-color: #0056b3;
-          }
-          .delete-btn {
-            background-color: #dc3545;
-            color: white;
-          }
-          .delete-btn:hover { 
-            background-color: #bd2130;
-          }
-      `;
-    }
-  
-    initTemplate() {
-      const style = document.createElement('style');
-      style.textContent = this.createStyles();
-      
-      const container = document.createElement('div');
-      container.className = `container ${this._theme}`;
-  
-      const title = document.createElement('h2');
-      title.className = 'title';
-      title.textContent = this._title;
-  
-      const description = document.createElement('pre');
-      description.className = 'description';
-      description.textContent = this._description;
-  
-      const options = document.createElement('div');
-      options.className = 'options';
-  
-      const slot = document.createElement('slot'); // Slot permanece fijo
-      slot.id = 'slot';
-  
-      container.append(title, description,slot, options );
-      this.shadowRoot.append(style, container);
-  
-      this.updateOptions();
-    }
-  
-    updateOptions() {
-      const optionsContainer = this.shadowRoot.querySelector('.options');
-      optionsContainer.innerHTML = ''; // Limpiar opciones
-  
-      this._options.forEach((option, index) => {
-        const button = document.createElement('button');
-        button.textContent = option.label;
-        button.style = option.style || '';
-        button.className = option.class || '';
-        button.dataset.index = index;
-  
-        button.addEventListener('click', () => {
-          if (this._options[index]?.callback) {
-            this._options[index].callback();
-          }
-        });
-  
-        optionsContainer.appendChild(button);
-      });
-    }
-}
-  
-customElements.define('custom-dialog', CustomDialog);
-
-class DialogContainer extends HTMLElement {
-    constructor() {
-    super();
-    this.attachShadow({ mode: 'open', delegatesFocus: true });
-    
-    // Estado inicial
-    this._isVisible = false;
-    this._content = null;
-    
-    this.render();
-    }
-
-    static get observedAttributes() {
-    return ['visible','required'];
-    }
-
-    attributeChangedCallback(name, oldValue, newValue) {
-    if (name === 'visible') {
-        this._isVisible = newValue !== null;
-        this.updateVisibility();
-    }
-    }
-
-    // Métodos públicos para mostrar/ocultar
-    show() {
-    this._isVisible = true;
-    this.setAttribute('visible', '');
-    this.updateVisibility();
-    }
-
-    hide() {
-    this._isVisible = false;
-    this.removeAttribute('visible');
-    this.updateVisibility();
-    }
-
-    // Método para insertar contenido
-    setContent(element) {
-    this._content = element;
-    this.render();
-    }
-
-    createStyles() {
-    return `
-        :host {
-        display: block;
-        position: relative;
-        background: inherit;
-        background-color: inherit;
-        color: inherit;
-        border-radius: inherit;
-        }
-        .dialog-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-        opacity: 0;
-        visibility: hidden;
-        transition: all 0.3s ease;
-        /*blur effect*/
-        backdrop-filter: blur(4px);
-        }
-        .dialog-overlay.visible {
-        opacity: 1;
-        visibility: visible;
-        }
-        .dialog-content {
-        transform: scale(0.95);
-        transition: transform 0.3s ease;
-        max-height: 90dvh;
-        overflow-y: auto;
-        background: inherit;
-        background-color: inherit;
-        color: inherit;
-        border-radius: inherit;
-        border-radius: 16px;
-        padding: inherit;
-        margin: inherit;
-        padding: 8px;
-        }
-        .dialog-overlay.visible .dialog-content {
-        transform: scale(1);
-        }
-        .header .avatar {
-            grid-area: avatar;
-            width: 64px;
-            height: 64px;
-            background: var(--bg-dark-accent-light);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .header .username {
-            align-self: center;
-            grid-area: username;
-            font-size: 16pt;
-            font-weight: 600;
-        }
-
-        .header .email {
-            align-self: center;
-            grid-area: email;
-            font-size: 12pt;
-            font-weight: 400;
-        }
-
-    `;
-    }
-
-    updateVisibility() {
-    const overlay = this.shadowRoot.querySelector('.dialog-overlay');
-    if (overlay) {
-        if (this._isVisible) {
-        overlay.classList.add('visible');
-        } else {
-        overlay.classList.remove('visible');
-        }
-    }
-    }
-
-    render() {
-    const content = `
-        <style>
-        ${this.createStyles()}
-        </style>
-        <div class="dialog-overlay ${this._isVisible ? 'visible' : ''}">
-        <div class="dialog-content">
-            <slot></slot>
-        </div>
-        </div>
-    `;
-    
-    this.shadowRoot.innerHTML = content;
-
-    // Agregar evento para cerrar al hacer clic fuera
-    const overlay = this.shadowRoot.querySelector('.dialog-overlay');
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay && !this.hasAttribute('required')) {
-        this.hide();
-        }
-    });
-    }
-}
-customElements.define('dialog-container', DialogContainer);
-if (!customElements.get('custom-input')) {
-    class CustomInput extends HTMLElement {
-      constructor() {
-        super();
-        this.attachShadow({ mode: 'open', delegatesFocus: true });
-        this.handleInputChange = this.handleInputChange.bind(this);
-      }
-  
-      static get observedAttributes() {
-        return ['type', 'id', 'name', 'value', 'placeholder', 'disabled', 'readonly', 'darkmode', 'options', 'required', 'title', 'pattern'];
-      }
-  
-      getStyles() {
-        const darkMode = this.hasAttribute('darkmode');
-  
-        return `
-          :host {
-            display: block;
-            margin: inherit;
-            color-scheme: light dark;
-            margin: 0.5rem;
-            padding: 0.5rem;
-          }
-          
-          .input-container {
-            display: flex;
-            flex-direction: column;
-            padding: inherit;
-          }
-          
-          input, textarea, select {
-            padding: inherit;
-            padding: 0.5rem;  /* Valor de respaldo si no se hereda */
-            border: inherit;
-            border-color: ${darkMode ? '#555' : '#ccc'};
-            border-radius: 4px;
-            font-size: 14px;
-            background-color: inherit;
-            color: inherit;
-          }
-          textarea {
-            resize: vertical;
-            min-height: 100px;
-          }
-          input:disabled, textarea:disabled, select:disabled {
-            background-color: ${darkMode ? '#222' : '#f5f5f5'};
-            cursor: not-allowed;
-            color: ${darkMode ? '#666' : '#888'};
-          }
-          
-          .switch {
-            position: relative;
-            display: inline-block;
-            width: 60px;
-            height: 30px;
-          }
-          
-          .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-          }
-          
-          .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: ${darkMode ? '#555' : '#ccc'};
-            transition: .4s;
-            border-radius: 34px;
-          }
-          
-          .slider:before {
-            position: absolute;
-            content: "";
-            height: 22px;
-            width: 22px;
-            left: 4px;
-            bottom: 4px;
-            background-color: ${darkMode ? '#888' : 'white'};
-            transition: .4s;
-            border-radius: 50%;
-          }
-          
-          input:checked + .slider {
-            background-color: #2196F3;
-          }
-          
-          input:checked + .slider:before {
-            transform: translateX(28px);
-          }
-          
-          input:focus, textarea:focus, select:focus {
-            outline: none;
-            border-color: #2196F3;
-            box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
-          }
-        `;
-      }
-  
-      connectedCallback() {
-        this.render();
-        
-        // Check if this is a radio button group
-        if (this.getAttribute('type') === 'radio') {
-          // For radio buttons, we need to attach listeners to all radio inputs
-          const radioInputs = this.shadowRoot.querySelectorAll('input[type="radio"]');
-          radioInputs.forEach(radio => {
-            radio.addEventListener('change', this.handleInputChange);
-          });
-        } else {
-          // For other input types, attach to the single input element
-          const input = this.shadowRoot.querySelector('input, textarea, select');
-          if (input) {
-            input.addEventListener('input', this.handleInputChange);
-            input.addEventListener('change', this.handleInputChange);
-          }
-        }
-        
-        // Corregimos el manejo del evento submit
-        const form = this.shadowRoot.querySelectorAll('form');
-        if (form) {
-          form.forEach(form => {
-            form.addEventListener('submit', (e) => {
-              const data = this.getInputValues();
-              this.handleSubmit(e,data);
-            });
-          });
-        }
-      }
-    
-      disconnectedCallback() {
-        // Check if this is a radio button group
-        if (this.getAttribute('type') === 'radio') {
-          // For radio buttons, we need to remove listeners from all radio inputs
-          const radioInputs = this.shadowRoot.querySelectorAll('input[type="radio"]');
-          radioInputs.forEach(radio => {
-            radio.removeEventListener('change', this.handleInputChange);
-          });
-        } else {
-          // For other input types, remove from the single input element
-          const input = this.shadowRoot.querySelector('input, textarea, select');
-          if (input) {
-            input.removeEventListener('input', this.handleInputChange);
-            input.removeEventListener('change', this.handleInputChange);
-          }
-        }
-        
-        // Limpiamos el evento submit
-        const form = this.shadowRoot.querySelector('.validate-form');
-      }
-  
-      handleInputChange(event) {
-        const value = this.getInputValues();
-        this.dispatchEvent(new CustomEvent('change', {
-          detail: {
-            id: this.getAttribute('id'),
-            name: this.getAttribute('name'),
-            value: value
-          },
-          bubbles: true,
-          composed: true
-        }));
-      }
-  
-      attributeChangedCallback(name, oldValue, newValue) {
-        if (oldValue !== newValue) {
-          this.render();
-        }
-      }
-      handleSubmit(e,data = null) {
-        e.preventDefault(); // Prevenimos la recarga de la página
-        
-        // Validamos el formulario
-        const form = e.target;
-        const isValid = form.checkValidity();
-        if (isValid) {
-          // Disparamos un evento personalizado con los datos del formulario
-          this.dispatchEvent(new CustomEvent('form-submit', {
-            detail: {
-              id: this.getAttribute('id'),
-              name: this.getAttribute('name'),
-              value: data
-            },
-            bubbles: true,
-            composed: true
-          }));
-        }
-      }
-      render() {
-        const type = this.getAttribute('type') || 'text';
-        const id = this.getAttribute('id');
-        const name = this.getAttribute('name');
-        const value = this.getAttribute('value') || '';
-        const placeholder = this.getAttribute('placeholder') || '';
-        const disabled = this.hasAttribute('disabled');
-        const readonly = this.hasAttribute('readonly');
-        const options = this.getAttribute('options') || '[]';
-        const required = this.hasAttribute('required') ? 'required' : '';
-        const title = this.getAttribute('title') || '';
-        const pattern = this.getAttribute('pattern') || '';
-        const allarguments = { type, id, name, value, placeholder, disabled, readonly, options, required, title, pattern };
-        this.shadowRoot.innerHTML = `
-          <style>${this.getStyles()}</style>
-          <form class="validate-form">
-            <div class="input-container">
-              ${this.renderInput(allarguments)}
-            </div>
-          </form>
-        `;
-  
-        // Reattach event listeners after rendering
-        if (type === 'radio') {
-          // For radio buttons, attach listeners to all radio inputs
-          const radioInputs = this.shadowRoot.querySelectorAll('input[type="radio"]');
-          radioInputs.forEach(radio => {
-            radio.addEventListener('change', this.handleInputChange);
-          });
-        } else {
-          // For other input types, attach to the single input element
-          const input = this.shadowRoot.querySelector('input, textarea, select');
-          if (input) {
-            input.addEventListener('input', this.handleInputChange);
-            input.addEventListener('change', this.handleInputChange);
-          }
-        }
-      }
-  
-      renderInput(allarguments) {
-        const { type, id, name, value, placeholder, disabled, readonly, options, required, title, pattern } = allarguments;
-        const requiredAttr = required ? 'required' : ''; // This will output just 'required' when needed
-        
-        switch (type) {
-          case 'textarea':
-            return `
-              <textarea
-                id="${id}"
-                name="${name}"
-                placeholder="${placeholder}"
-                ${disabled ? 'disabled' : ''}
-                ${readonly ? 'readonly' : ''}
-                ${requiredAttr}
-                  ${title ? `title="${title}" oninvalid="this.setCustomValidity('${title}')" oninput="this.setCustomValidity('')"` : ''}
-                  ${pattern ? `pattern="${pattern}"` : ''}
-              >${value}</textarea>
-            `;
-          
-          case 'checkbox':
-          case 'switch':
-          case 'boolean':
-            return `
-              <label class="switch">
-                <input
-                  type="checkbox"
-                  id="${id}"
-                  name="${name}"
-                  ${value === 'true' ? 'checked' : ''}
-                  ${disabled ? 'disabled' : ''}
-                  ${readonly ? 'readonly' : ''}
-                  ${requiredAttr}
-                  ${title ? `title="${title}" oninvalid="this.setCustomValidity('${title}')" oninput="this.setCustomValidity('')"` : ''}
-                  ${pattern ? `pattern="${pattern}"` : ''}
-                >
-                <span class="slider"></span>
-              </label>
-            `;
-          
-          case 'select':
-            const optionsArray = JSON.parse(options);
-            return `
-              <select
-                id="${id}"
-                name="${name}"
-                ${disabled ? 'disabled' : ''}
-                ${readonly ? 'readonly' : ''}
-                ${required ? 'required' : ''}
-                  ${title ? `title="${title}" oninvalid="this.setCustomValidity('${title}')" oninput="this.setCustomValidity('')"` : ''}
-                  ${pattern ? `pattern="${pattern}"` : ''}
-              >
-                ${optionsArray.map(option => `
-                  <option value="${option.value}" ${option.value === value ? 'selected' : ''}>
-                    ${option.image ? `<img src="${option.image}" alt="${option.label}" style="vertical-align: middle; margin-right: 5px;">` : ''}
-                    ${option.label}
-                  </option>
-                `).join('')}
-              </select>
-            `;
-          
-          case 'radio':
-            const radioOptions = safeParse(options);
-            return radioOptions.map(option => `
-              <label>
-                <input
-                  type="radio"
-                  id="${id}"
-                  name="${name}"
-                  value="${option.value}"
-                  ${option.value === value ? 'checked' : ''}
-                  ${disabled ? 'disabled' : ''}
-                  ${readonly ? 'readonly' : ''}
-                >
-                ${option.label}
-              </label>
-            `).join('');
-              
-            default:
-              return `
-                <input
-                  type="${type === 'string' ? 'text' : type}"
-                  id="${id}"
-                  name="${name}"
-                  value="${value}"
-                  placeholder="${placeholder}"
-                  ${disabled ? 'disabled' : ''}
-                  ${readonly ? 'readonly' : ''}
-                  ${requiredAttr}
-                  ${title ? `title="${title}" oninvalid="this.setCustomValidity('${title}')" oninput="this.setCustomValidity('')"` : ''}
-                  ${pattern ? `pattern="${pattern}"` : ''}
-                >
-              `;
-          
-        }
-      }
-  
-      getInputValues() {
-        // Special handling for radio button groups
-        if (this.getAttribute('type') === 'radio') {
-          const name = this.getAttribute('name');
-          const selectedRadio = this.shadowRoot.querySelector(`input[name="${name}"]:checked`);
-          return selectedRadio ? selectedRadio.value : null;
-        }
-        
-        const input = this.shadowRoot.querySelector('input, textarea, select');
-        if (!input) return null;
-      
-        if (input.type === 'checkbox') {
-          return input.checked;
-        }
-        
-        if (input.tagName.toLowerCase() === 'textarea') {
-          const value = input.value.trim();
-          return value ? value.split('\n') : [];
-        }
-      
-        if (input.tagName.toLowerCase() === 'select') {
-          return input.value;
-        }
-      
-        const inputvalue = this.parseValueByType(input);
-        const validate_form = this.shadowRoot.querySelectorAll('form');
-        if (validate_form) {
-          validate_form.forEach(form => {
-            const form_validity = form.reportValidity();
-            if (!form_validity) {
-              form.classList.add('invalid');
-            } else {
-              form.classList.remove('invalid');
-            }
-        //console.log("form_validity", form_validity);
-          });
-        }
-
-        return inputvalue;
-      }
-      getvalidation(){
-        let isValid = false;
-        const validate_form = this.shadowRoot.querySelectorAll('form');
-        if (validate_form) {
-          validate_form.forEach(form => {
-            const form_validity = form.reportValidity();
-            if (!form_validity) {
-              isValid = false;
-            } else {
-              isValid = true;
-            }
-         // console.log("form_validity", form_validity);
-          });
-        }
-        return isValid;
-      }
-      parseValueByType(input) {
-        const valueType = typeof input.value;
-        const inputType = input.type;
-        const value = input.value;
-        switch (inputType) {
-          case 'number':
-            const num = input.value ? Number(input.value) : null;
-            return num
-          case 'text':
-          case 'string':
-            return value;
-          default:
-            return value;
-        }
-      }
-  
-      setInputValues(value) {
-        // Special handling for radio button groups
-        if (this.getAttribute('type') === 'radio') {
-          const name = this.getAttribute('name');
-          const radioToSelect = this.shadowRoot.querySelector(`input[name="${name}"][value="${value}"]`);
-          if (radioToSelect) {
-            radioToSelect.checked = true;
-            // Dispatch event when setting values programmatically
-            this.handleInputChange();
-          }
-          return;
-        }
-        
-        const input = this.shadowRoot.querySelector('input, textarea, select');
-        if (!input) return;
-      
-        if (input.type === 'checkbox') {
-          input.checked = Boolean(value);
-        } else if (Array.isArray(value) && input.tagName.toLowerCase() === 'textarea') {
-          input.value = value.join('\n');
-        } else if (input.tagName.toLowerCase() === 'select') {
-          input.value = value;
-        } else {
-          input.value = value;
-        }
-      
-        // Dispatch event when setting values programmatically
-        this.handleInputChange();
-      }
-  
-      resetInputValues() {
-        // Special handling for radio button groups
-        if (this.getAttribute('type') === 'radio') {
-          const radioInputs = this.shadowRoot.querySelectorAll('input[type="radio"]');
-          radioInputs.forEach(radio => {
-            radio.checked = false;
-          });
-          // Dispatch event when resetting values
-          this.handleInputChange();
-          return;
-        }
-        
-        const input = this.shadowRoot.querySelector('input, textarea, select');
-        if (!input) return;
-  
-        if (input.type === 'checkbox') {
-          input.checked = false;
-        } else {
-          input.value = '';
-        }
-  
-        // Dispatch event when resetting values
-        this.handleInputChange();
-      }
-  
-      setOptions(options) {
-        if (this.getAttribute('type') === 'select') {
-          this.setAttribute('options', JSON.stringify(options));
-          this.render();
-        }
-      }
-  
-      getSelectedOption() {
-        if (this.getAttribute('type') === 'select') {
-          const select = this.shadowRoot.querySelector('select');
-          return select ? select.value : null;
-        }
-        return null;
-      }
-    }
-  
-    customElements.define('custom-input', CustomInput);
-  }
-  class CustomPopup extends HTMLElement {
+class CustomPopup extends HTMLElement {
     constructor() {
         super();
         this.attachShadow({ mode: 'open', delegatesFocus: true });
@@ -1008,11 +198,940 @@ customElements.define('custom-popup', CustomPopup);
         return value; // Retorna el valor original si no se puede parsear
     }
 }
+class CDlg extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open', delegatesFocus: true });
+    this._t = this.getAttribute('title') || ''; // Initialize from attribute
+    this._d = this.getAttribute('description') || ''; // Initialize from attribute
+    this._o = [];
+    this._th = this.getAttribute('theme') || 'light'; // Initialize from attribute
+    this._init();
+  }
 
-// Ejemplo de prueba:
-/* console.log(safeParse("[{value: '123', label: '123'}, {value: '1234', label: '1234'}]"));
+  static get observedAttributes() {
+    // Corregido: Eliminado 'tittle'
+    return ['title', 'description', 'theme'];
+  }
 
-console.log(safeParse('{"key": "value"}')); // Devuelve un objeto
-console.log(safeParse('not a json')); // Devuelve el string original
-console.log(safeParse(42)); // Devuelve 42 (número)
-console.log(safeParse({ key: "value" })); // Devuelve el objeto original */
+  attributeChangedCallback(n, oV, nV) {
+    if (oV !== nV) {
+      const sr = this.shadowRoot;
+      switch (n) {
+        // Corregido: Eliminado 'tittle' case
+        case 'title':
+          this._t = nV;
+          // Use nullish coalescing for safety, though querySelector should find it
+          (sr.querySelector('.title') ?? {}).textContent = this._t;
+          break;
+        case 'description':
+          this._d = nV;
+          (sr.querySelector('.description') ?? {}).textContent = this._d;
+          break;
+        case 'theme':
+          this._th = nV || 'light'; // Default to light if null/empty
+          const container = sr.querySelector('.container');
+          if (container) {
+             // More robust way to handle class changes for theme
+             container.classList.remove('light', 'dark'); // Remove existing theme classes
+             container.classList.add(this._th); // Add the new theme class
+          }
+          break;
+      }
+    }
+  }
+
+  get options() {
+    return this._o;
+  }
+
+  set options(v) {
+    // Ensure v is an array
+    this._o = Array.isArray(v) ? v : [];
+    this._updOpts();
+  }
+
+  _css() {
+    return `
+      :host {
+        /* Define variables for easier customization */
+        --dlg-padding: 1.5rem;
+        --dlg-border-radius: 8px;
+        --dlg-font-family: system-ui, -apple-system, sans-serif;
+        --dlg-title-size: 1.5rem;
+        --dlg-title-weight: 600;
+        --dlg-desc-size: 1rem;
+        --dlg-desc-opacity: 0.8;
+        --dlg-desc-max-height: 500px; /* Max height before scroll */
+        --dlg-button-padding: 0.5rem 1rem;
+        --dlg-button-radius: 4px;
+        --dlg-button-font-size: 0.875rem;
+        --dlg-options-gap: 0.5rem;
+        --dlg-slot-margin-top: 1rem;
+        --dlg-transition-speed: 0.2s;
+
+        /* Light Theme Colors (Defaults) */
+        --dlg-text-color: #1a1a1a;
+        --dlg-border-color: #e5e5e5;
+        --dlg-bg-color: #ffffff; /* Added background for completeness */
+        --dlg-button-cancel-bg: #e5e5e5;
+        --dlg-button-cancel-text: #1a1a1a;
+        --dlg-button-cancel-hover-bg: #d9d9d9; /* Corrected hover */
+
+        /* Dark Theme Colors (Applied via .dark class) */
+        --dlg-dark-text-color: #ffffff;
+        --dlg-dark-border-color: #333333;
+        --dlg-dark-bg-color: #2a2a2a; /* Example dark bg */
+        --dlg-dark-button-cancel-bg: #444444;
+        --dlg-dark-button-cancel-text: #ffffff;
+        --dlg-dark-button-cancel-hover-bg: #555555;
+
+        /* Shared Button Colors */
+        --dlg-button-save-bg: #007bff;
+        --dlg-button-save-text: white;
+        --dlg-button-save-hover-bg: #0056b3;
+        --dlg-button-delete-bg: #dc3545;
+        --dlg-button-delete-text: white;
+        --dlg-button-delete-hover-bg: #bd2130;
+
+        /* Host styles */
+        display: block;
+        font-family: var(--dlg-font-family);
+      }
+
+      /* Container holds all content */
+      .container {
+        padding: var(--dlg-padding);
+        border-radius: var(--dlg-border-radius);
+        transition: background-color var(--dlg-transition-speed) ease, border-color var(--dlg-transition-speed) ease, color var(--dlg-transition-speed) ease;
+        border: 1px solid var(--dlg-border-color);
+        background-color: var(--dlg-bg-color);
+        color: var(--dlg-text-color);
+      }
+
+      /* Dark theme overrides */
+      .container.dark {
+        border-color: var(--dlg-dark-border-color);
+        background-color: var(--dlg-dark-bg-color);
+        color: var(--dlg-dark-text-color);
+      }
+
+      /* --- Elements --- */
+      .title {
+        font-size: var(--dlg-title-size);
+        font-weight: var(--dlg-title-weight);
+        margin: 0 0 0.5rem 0; /* Added some bottom margin */
+      }
+
+      .description {
+        font-size: var(--dlg-desc-size);
+        opacity: var(--dlg-desc-opacity);
+        max-height: var(--dlg-desc-max-height);
+        overflow-y: auto;
+        margin: 0 0 1rem 0; /* Added some bottom margin */
+        white-space: pre-wrap; /* Allow wrapping within <pre> */
+        word-wrap: break-word; /* Break long words */
+      }
+
+      /* Container for dynamically added buttons */
+      .options {
+        display: flex;
+        gap: var(--dlg-options-gap);
+        flex-wrap: wrap;
+        margin-top: var(--dlg-padding); /* Add space above buttons */
+        justify-content: flex-end; /* Align buttons to the right by default */
+      }
+
+      /* Default slot for additional content */
+      slot {
+        display: block;
+        margin-top: var(--dlg-slot-margin-top);
+        margin-bottom: var(--dlg-slot-margin-top); /* Added bottom margin */
+      }
+
+      /* --- Buttons --- */
+      button {
+        padding: var(--dlg-button-padding);
+        border-radius: var(--dlg-button-radius);
+        border: none;
+        cursor: pointer;
+        font-size: var(--dlg-button-font-size);
+        font-family: inherit; /* Inherit font from host */
+        transition: background-color var(--dlg-transition-speed) ease, opacity var(--dlg-transition-speed) ease;
+        background-color: transparent; /* Default button is transparent */
+        color: inherit; /* Inherit text color */
+        border: 1px solid transparent; /* Add border for consistent sizing */
+      }
+
+      button:hover {
+         opacity: 0.85; /* Slight fade effect on hover for generic buttons */
+      }
+
+      /* Specific button styles */
+      .save-btn {
+        background-color: var(--dlg-button-save-bg);
+        color: var(--dlg-button-save-text);
+        border-color: var(--dlg-button-save-bg);
+      }
+      .save-btn:hover {
+        background-color: var(--dlg-button-save-hover-bg);
+        border-color: var(--dlg-button-save-hover-bg);
+        opacity: 1; /* Override generic hover */
+      }
+
+      .cancel-btn {
+        background-color: var(--dlg-button-cancel-bg);
+        color: var(--dlg-button-cancel-text);
+        border-color: var(--dlg-button-cancel-bg);
+      }
+      .cancel-btn:hover {
+        background-color: var(--dlg-button-cancel-hover-bg); /* Corrected hover */
+        border-color: var(--dlg-button-cancel-hover-bg);
+        opacity: 1;
+      }
+      /* Dark theme overrides for cancel button */
+      .container.dark .cancel-btn {
+        background-color: var(--dlg-dark-button-cancel-bg);
+        color: var(--dlg-dark-button-cancel-text);
+        border-color: var(--dlg-dark-button-cancel-bg);
+      }
+      .container.dark .cancel-btn:hover {
+        background-color: var(--dlg-dark-button-cancel-hover-bg);
+        border-color: var(--dlg-dark-button-cancel-hover-bg);
+      }
+
+
+      .delete-btn {
+        background-color: var(--dlg-button-delete-bg);
+        color: var(--dlg-button-delete-text);
+        border-color: var(--dlg-button-delete-bg);
+      }
+      .delete-btn:hover {
+        background-color: var(--dlg-button-delete-hover-bg);
+        border-color: var(--dlg-button-delete-hover-bg);
+        opacity: 1;
+      }
+    `;
+  }
+
+  _init() {
+    // Create style element
+    const styleElement = document.createElement('style');
+    styleElement.textContent = this._css();
+
+    // Create main container div
+    const container = document.createElement('div');
+    // Set initial class based on _th property
+    container.className = `container ${this._th}`; // Use property directly
+
+    // Create title element
+    const titleElement = document.createElement('h2');
+    titleElement.className = 'title';
+    titleElement.textContent = this._t; // Use property directly
+
+    // Create description element
+    const descriptionElement = document.createElement('pre'); // Using <pre> as in original
+    descriptionElement.className = 'description';
+    descriptionElement.textContent = this._d; // Use property directly
+
+    // Create options container
+    const optionsContainer = document.createElement('div');
+    optionsContainer.className = 'options';
+
+    // Create default slot
+    const slotElement = document.createElement('slot');
+    // No ID needed unless specifically targeted
+
+    // Append elements to the container
+    container.append(titleElement, descriptionElement, slotElement, optionsContainer);
+
+    // Append style and container to shadowRoot
+    this.shadowRoot.append(styleElement, container);
+
+    // Initial population of options
+    this._updOpts();
+  }
+
+  _updOpts() {
+    const optionsContainer = this.shadowRoot.querySelector('.options');
+    // Check if container exists before proceeding
+    if (!optionsContainer) {
+        console.warn('Options container not found in c-dlg shadowRoot.');
+        return;
+    }
+
+    // Clear previous options efficiently
+    optionsContainer.innerHTML = '';
+
+    // Add new options
+    this._o.forEach((opt, i) => {
+      if (!opt || typeof opt.label === 'undefined') {
+          console.warn(`Invalid option at index ${i}:`, opt);
+          return; // Skip invalid option object
+      }
+      const button = document.createElement('button');
+      button.textContent = opt.label;
+      // Apply style attribute if provided
+      if (opt.style) {
+         button.style.cssText = opt.style;
+      }
+       // Apply class(es) if provided
+      if (opt.class) {
+         // Support multiple classes separated by space
+         opt.class.split(' ').forEach(cls => {
+            if(cls) button.classList.add(cls);
+         });
+      }
+      // Add data-index for potential targeting, though direct callback is used
+      button.dataset.index = i;
+
+      // Add click listener for the callback
+      button.addEventListener('click', (e) => {
+        // Check if callback exists and is a function
+        if (this._o[i]?.callback && typeof this._o[i].callback === 'function') {
+          this._o[i].callback(e); // Pass event object to callback
+        } else {
+            console.warn(`No valid callback found for option index ${i}`);
+        }
+      });
+
+      optionsContainer.appendChild(button);
+    });
+  }
+}
+customElements.define('c-dlg', CDlg);
+
+class DlgCont extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open', delegatesFocus: true });
+    // Initialize visibility based on the presence of the attribute
+    this._vis = this.hasAttribute('visible');
+    this._render();
+  }
+
+  static get observedAttributes() {
+    return ['visible', 'required'];
+  }
+
+  attributeChangedCallback(name, oldValue, newValue) {
+    // Only react if the value actually changes to avoid unnecessary updates
+    if (oldValue !== newValue) {
+        if (name === 'visible') {
+            const shouldBeVisible = newValue !== null; // Attribute presence check
+            if (this._vis !== shouldBeVisible) { // Update only if state differs
+                 this._vis = shouldBeVisible;
+                 this._updVis();
+            }
+        }
+        // 'required' attribute doesn't need visual update, just affects behavior
+    }
+  }
+
+  // Method to programmatically show the dialog
+  show() {
+    // Set attribute which triggers attributeChangedCallback -> _updVis
+    if (!this.hasAttribute('visible')) {
+        this.setAttribute('visible', '');
+    }
+  }
+
+  // Method to programmatically hide the dialog
+  hide() {
+     // Remove attribute which triggers attributeChangedCallback -> _updVis
+     if (this.hasAttribute('visible')) {
+        this.removeAttribute('visible');
+     }
+  }
+
+  _css() {
+    return `
+      :host {
+        /* --- Customizable Variables --- */
+        --dlg-overlay-bg: rgba(0, 0, 0, 0.5); /* Overlay background color */
+        --dlg-z-index: 1000;                  /* Stack order */
+        --dlg-transition-duration: 0.3s;       /* Animation speed */
+        --dlg-content-max-height: 90dvh;     /* Max height relative to viewport */
+        --dlg-content-border-radius: 16px;   /* Dialog box corner rounding */
+        --dlg-content-padding: 8px;         /* Padding around the slotted content */
+        /* Note: Background and color for .dlg-cnt can be set here or use 'inherit' */
+        /* Using inherit allows styling via the <dlg-cont> element itself */
+        --dlg-content-bg: inherit;
+        --dlg-content-color: inherit;
+
+        /* --- Host Element --- */
+        /* The host itself is usually just a block container */
+        display: block;
+        /* The following inherit properties allow styling the *content* background/color */
+        /* by applying styles to the <dlg-cont> element externally. */
+        background: inherit; /* Inherits from parent in normal DOM */
+        color: inherit;      /* Inherits from parent in normal DOM */
+        /* border-radius/padding on host are less useful if .dlg-cnt defines its own */
+      }
+
+      /* --- Overlay --- */
+      .dlg-ov {
+        position: fixed;
+        inset: 0; /* Modern equivalent of top/left/width/height = 0/0/100%/100% */
+        background-color: var(--dlg-overlay-bg);
+
+        /* Centering */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        z-index: var(--dlg-z-index);
+
+        /* Initial state (hidden) */
+        opacity: 0;
+        visibility: hidden;
+
+        /* Transition for appearance */
+        transition: opacity var(--dlg-transition-duration) ease,
+                    visibility var(--dlg-transition-duration) ease;
+      }
+
+      /* --- Content Wrapper --- */
+      .dlg-cnt {
+        /* Intrinsic sizing and scrolling */
+        max-height: var(--dlg-content-max-height);
+        overflow-y: auto;
+
+        /* Appearance - Inherits from host by default via variables */
+        background: var(--dlg-content-bg);
+        color: var(--dlg-content-color);
+        border-radius: var(--dlg-content-border-radius);
+        padding: var(--dlg-content-padding); /* Padding inside the dialog box */
+        /* margin: 1rem; /* Optional margin around the dialog */
+
+        /* Initial state for transform */
+        transform: scale(0.95);
+        /* Transition for pop-in effect */
+        transition: transform var(--dlg-transition-duration) ease;
+
+        /* Prevent content from inheriting overlay transitions */
+        transition-property: transform;
+      }
+
+      /* --- Visible State --- */
+      .dlg-ov.visible {
+        opacity: 1;
+        visibility: visible;
+      }
+
+      .dlg-ov.visible .dlg-cnt {
+        transform: scale(1); /* Animate to full size */
+      }
+
+      /* Removed unused .header styles */
+    `;
+  }
+
+  _updVis() {
+    // Ensure shadowRoot and overlay exist
+    const overlay = this.shadowRoot?.querySelector('.dlg-ov');
+    if (overlay) {
+      overlay.classList.toggle('visible', this._vis);
+      // Optional: Manage focus when showing/hiding
+      if (this._vis) {
+        // Attempt to focus the container or the first focusable element inside
+        // Using delegatesFocus: true on attachShadow helps manage focus
+        // but sometimes explicit focus is needed depending on content.
+        const content = overlay.querySelector('.dlg-cnt');
+        // Check if content exists and is not already focused
+         if(content && typeof content.focus === 'function' && this.shadowRoot.activeElement !== content) {
+            // Set tabindex=-1 to make it focusable if it isn't naturally
+            // This might not be needed if delegatesFocus works as expected
+            // or if there are focusable elements (buttons, inputs) inside
+            // if (!content.hasAttribute('tabindex')) {
+            //   content.setAttribute('tabindex', "-1");
+            // }
+            // requestAnimationFrame(() => content.focus()); // Focus after paint
+         }
+      } else {
+          // Potentially return focus to the element that opened the dialog
+          // Requires storing the previously focused element before showing.
+      }
+    }
+  }
+
+  _render() {
+    const styleElement = document.createElement('style');
+    styleElement.textContent = this._css();
+
+    const overlay = document.createElement('div');
+    overlay.className = `dlg-ov ${this._vis ? 'visible' : ''}`; // Initial class based on _vis
+
+    const contentContainer = document.createElement('div');
+    contentContainer.className = 'dlg-cnt';
+
+    const slotElement = document.createElement('slot'); // Default slot
+
+    contentContainer.appendChild(slotElement);
+    overlay.appendChild(contentContainer);
+
+    this.shadowRoot.append(styleElement, overlay);
+
+    // Add click listener to the overlay (for closing)
+    overlay.addEventListener('click', (e) => {
+        // Check if the click target is the overlay itself (not content)
+        // and if the dialog is not 'required'
+        if (e.target === overlay && !this.hasAttribute('required')) {
+            this.hide(); // Call the hide method
+        }
+    });
+
+    // Optional: Add Escape key listener to close the dialog
+    // This requires adding/removing listener when visibility changes
+    // Could be added in _updVis or constructor/disconnectedCallback
+  }
+}
+customElements.define('dlg-cont', DlgCont);
+if (!customElements.get('c-inp')) {
+  class CInp extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open', delegatesFocus: true });
+      this._hndlInpChg = this._hndlInpChg.bind(this);
+    }
+
+    static get observedAttributes() {
+      return ['type', 'id', 'name', 'value', 'placeholder', 'disabled', 'readonly', 'darkmode', 'options', 'required', 'title', 'pattern'];
+    }
+
+    _css() {
+      const dm = this.hasAttribute('darkmode');
+      return `
+        :host { display: block; margin: inherit; color-scheme: light dark; margin: 0.5rem; padding: 0.5rem; }
+        .inp-cont { display: flex; flex-direction: column; padding: inherit; }
+        input, textarea, select { padding: inherit; padding: 0.5rem; border: inherit; border-color: ${dm ? '#555' : '#ccc'}; border-radius: 4px; font-size: 14px; background-color: inherit; color: inherit; }
+        textarea { resize: vertical; min-height: 100px; }
+        input:disabled, textarea:disabled, select:disabled { background-color: ${dm ? '#222' : '#f5f5f5'}; cursor: not-allowed; color: ${dm ? '#666' : '#888'}; }
+        .sw { position: relative; display: inline-block; width: 60px; height: 30px; }
+        .sw input { opacity: 0; width: 0; height: 0; }
+        .sldr { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: ${dm ? '#555' : '#ccc'}; transition: .4s; border-radius: 34px; }
+        .sldr:before { position: absolute; content: ""; height: 22px; width: 22px; left: 4px; bottom: 4px; background-color: ${dm ? '#888' : 'white'}; transition: .4s; border-radius: 50%; }
+        input:checked + .sldr { background-color: #2196F3; }
+        input:checked + .sldr:before { transform: translateX(28px); }
+        input:focus, textarea:focus, select:focus { outline: none; border-color: #2196F3; box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2); }
+        .val-form.invalid input, .val-form.invalid textarea, .val-form.invalid select { border-color: red; box-shadow: 0 0 0 2px rgba(255, 0, 0, 0.2); }
+      `;
+    }
+
+    connectedCallback() {
+      this._rndr();
+      this._attachListeners();
+    }
+
+    disconnectedCallback() {
+       this._removeListeners();
+    }
+
+     _attachListeners() {
+        const t = this.getAttribute('type');
+        const sr = this.shadowRoot;
+
+        if (t === 'radio') {
+            const radInps = sr.querySelectorAll('input[type="radio"]');
+            radInps.forEach(r => r.addEventListener('change', this._hndlInpChg));
+        } else {
+            const inp = sr.querySelector('input, textarea, select');
+            if (inp) {
+                inp.addEventListener('input', this._hndlInpChg);
+                inp.addEventListener('change', this._hndlInpChg);
+            }
+        }
+
+        const f = sr.querySelector('.val-form'); // Only one form now
+        if (f) {
+            f.addEventListener('submit', (e) => {
+              e.preventDefault(); // Prevent default regardless of validity
+              const d = this.getVal();
+              if (this.isValid()) { // Only dispatch if valid
+                this._hndlSub(e, d);
+              }
+            });
+        }
+    }
+
+    _removeListeners() {
+        const t = this.getAttribute('type');
+        const sr = this.shadowRoot;
+
+        if (t === 'radio') {
+            const radInps = sr.querySelectorAll('input[type="radio"]');
+            radInps.forEach(r => r.removeEventListener('change', this._hndlInpChg));
+        } else {
+            const inp = sr.querySelector('input, textarea, select');
+            if (inp) {
+                inp.removeEventListener('input', this._hndlInpChg);
+                inp.removeEventListener('change', this._hndlInpChg);
+            }
+        }
+
+        // No need to explicitly remove submit listener, it's on the shadow root's form
+        // which gets removed when the element disconnects.
+    }
+
+
+    _hndlInpChg(evt) {
+      const v = this.getVal(); // Get value *after* change
+      this.dispatchEvent(new CustomEvent('change', {
+        detail: { id: this.getAttribute('id'), name: this.getAttribute('name'), value: v },
+        bubbles: true, composed: true
+      }));
+       this.isValid(); // Trigger validation check on change
+    }
+
+    attributeChangedCallback(nm, ov, nv) {
+      if (ov !== nv) {
+        this._rndr();
+         this._removeListeners(); // Remove old before attaching new
+         this._attachListeners(); // Re-attach listeners after render
+      }
+    }
+
+    _hndlSub(e, d = null) {
+      // Validity checked before calling this
+      this.dispatchEvent(new CustomEvent('form-submit', {
+        detail: { id: this.getAttribute('id'), name: this.getAttribute('name'), value: d },
+        bubbles: true, composed: true
+      }));
+    }
+
+    _rndr() {
+      const t = this.getAttribute('type') || 'text';
+      const i = this.getAttribute('id');
+      const n = this.getAttribute('name');
+      const v = this.getAttribute('value') || '';
+      const p = this.getAttribute('placeholder') || '';
+      const dis = this.hasAttribute('disabled');
+      const ro = this.hasAttribute('readonly');
+      const opts = this.getAttribute('options') || '[]';
+      const req = this.hasAttribute('required');
+      const tit = this.getAttribute('title') || '';
+      const pat = this.getAttribute('pattern') || '';
+      const args = { t, i, n, v, p, dis, ro, opts, req, tit, pat };
+
+      this.shadowRoot.innerHTML = `
+        <style>${this._css()}</style>
+        <form class="val-form" novalidate>
+          <div class="inp-cont">
+            ${this._rndrInp(args)}
+          </div>
+          <button type="submit" style="display: none;"></button>
+        </form>
+      `;
+        // Listeners are attached in connectedCallback and re-attached in attributeChangedCallback
+    }
+
+    _rndrInp(args) {
+      const { t, i, n, v, p, dis, ro, opts, req, tit, pat } = args;
+      const reqAttr = req ? 'required' : '';
+      const titleAttr = tit ? `title="${tit}" oninvalid="this.setCustomValidity('${tit}')" oninput="this.setCustomValidity('')"` : '';
+      const patternAttr = pat ? `pattern="${pat}"` : '';
+      const commonAttrs = `id="${i}" name="${n}" ${dis ? 'disabled' : ''} ${ro ? 'readonly' : ''} ${reqAttr} ${titleAttr} ${patternAttr}`;
+
+      switch (t) {
+        case 'textarea':
+          return `<textarea ${commonAttrs} placeholder="${p}">${v}</textarea>`;
+        case 'checkbox':
+        case 'switch':
+        case 'boolean':
+          return `<label class="sw"><input type="checkbox" ${commonAttrs} ${v === 'true' ? 'checked' : ''}><span class="sldr"></span></label>`;
+        case 'select':
+           try {
+                const optsArr = safeParse(opts);
+                return `
+                    <select ${commonAttrs}>
+                        ${optsArr.map(opt => `<option value="${opt.value}" ${opt.value === v ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                    </select>`;
+            } catch (e) { console.error("Invalid JSON for options:", opts); return `<select ${commonAttrs}></select>`; }
+        case 'radio':
+           try {
+                const radOpts = safeParse(opts);
+                return radOpts.map(opt => `
+                    <label>
+                        <input type="radio" id="${i}_${opt.value}" name="${n}" value="${opt.value}" ${opt.value === v ? 'checked' : ''} ${dis ? 'disabled' : ''} ${ro ? 'readonly' : ''} ${reqAttr} ${titleAttr}>
+                        ${opt.label}
+                    </label>`).join('');
+            } catch (e) { console.error("Invalid JSON for options:", opts); return ''; }
+        default:
+          return `<input type="${t === 'string' ? 'text' : t}" ${commonAttrs} value="${v}" placeholder="${p}">`;
+      }
+    }
+
+    getVal() {
+        const sr = this.shadowRoot;
+        if (this.getAttribute('type') === 'radio') {
+            const selRad = sr.querySelector(`input[name="${this.getAttribute('name')}"]:checked`);
+            return selRad ? selRad.value : null;
+        }
+
+        const inp = sr.querySelector('input:not([type=radio]), textarea, select');
+        if (!inp) return null;
+
+        if (inp.type === 'checkbox') return inp.checked; // Use boolean for checkbox
+        // Removed textarea specific split logic - treat as standard string input
+        return this._parseVal(inp);
+    }
+
+    isValid() {
+        const f = this.shadowRoot.querySelector('.val-form');
+        if (!f) return true; // No form, trivially valid
+        const valid = f.checkValidity();
+        f.classList.toggle('invalid', !valid);
+        //f.reportValidity(); // Show native bubbles (optional)
+        return valid;
+    }
+
+    _parseVal(inp) {
+        const v = inp.value;
+        switch (inp.type) {
+            case 'number': return v === '' ? null : Number(v); // Return null if empty, else number
+            // case 'text': // Treat text/string/others the same
+            // case 'string':
+            default: return v;
+        }
+    }
+
+    setVal(val) {
+        const sr = this.shadowRoot;
+        if (this.getAttribute('type') === 'radio') {
+            const radToSel = sr.querySelector(`input[name="${this.getAttribute('name')}"][value="${val}"]`);
+            if (radToSel) radToSel.checked = true;
+            this._hndlInpChg(); // Dispatch change
+            return;
+        }
+
+        const inp = sr.querySelector('input:not([type=radio]), textarea, select');
+        if (!inp) return;
+
+        if (inp.type === 'checkbox') {
+            inp.checked = Boolean(val);
+        } else {
+            inp.value = val === null || val === undefined ? '' : val; // Handle null/undefined
+        }
+        this._hndlInpChg(); // Dispatch change
+    }
+
+    reset() {
+        const sr = this.shadowRoot;
+        if (this.getAttribute('type') === 'radio') {
+            const radInps = sr.querySelectorAll('input[type="radio"]');
+            radInps.forEach(r => r.checked = false);
+            this._hndlInpChg();
+            return;
+        }
+
+        const inp = sr.querySelector('input:not([type=radio]), textarea, select');
+        if (!inp) return;
+
+        if (inp.type === 'checkbox') {
+            inp.checked = false;
+        } else {
+            inp.value = '';
+        }
+        this._hndlInpChg();
+    }
+
+    setOpts(opts) {
+        if (['select', 'radio'].includes(this.getAttribute('type'))) {
+            this.setAttribute('options', JSON.stringify(opts));
+            // Re-render is handled by attributeChangedCallback
+        }
+    }
+
+    getSelOpt() {
+        if (this.getAttribute('type') === 'select') {
+            const sel = this.shadowRoot.querySelector('select');
+            return sel ? sel.value : null;
+        }
+        return null;
+    }
+  }
+  customElements.define('c-inp', CInp);
+}
+class FrmGen {
+  constructor(cfg) {
+      if (!cfg || !cfg.modalId || !cfg.fields || !Array.isArray(cfg.fields)) {
+          throw new Error("FrmGen cfg requires 'modalId' and 'fields' array.");
+      }
+
+      this.cfg = cfg;
+      this.mId = cfg.modalId;
+      this.flds = cfg.fields;
+      this.val = cfg.validation || {};
+      this.svCb = typeof cfg.saveCallback === 'function' ? cfg.saveCallback : (fData) => {
+          console.warn("No svCb provided. Form data:", fData);
+      };
+      this.cnclCb = typeof cfg.cancelCallback === 'function' ? cfg.cancelCallback : () => {
+          console.log("Cancel action triggered.");
+      };
+
+      this.mdl = null;
+      this.dlg = null;
+      this.fElems = {};
+
+      this._hSv = this._hSv.bind(this);
+      this._hCncl = this._hCncl.bind(this);
+  }
+
+  init(cId) {
+      const c = document.getElementById(cId);
+      if (!c) {
+          console.error(`FrmGen init failed: Container with id "${cId}" not found.`);
+          return;
+      }
+
+      this.mdl = document.createElement('dlg-cont'); // Use shortened tag
+      this.mdl.id = this.mId;
+      if (this.cfg.required) {
+          this.mdl.setAttribute('required', '');
+      }
+
+      this.dlg = document.createElement('c-dlg'); // Use shortened tag
+      this.dlg.setAttribute('title', this.cfg.title || 'Form');
+      if (this.cfg.description) {
+          this.dlg.setAttribute('description', this.cfg.description);
+      }
+      const th = this.cfg.theme || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      this.dlg.setAttribute('theme', th);
+
+
+      this.flds.forEach(f => {
+          if (!f.id) {
+              console.warn("Form field skipped: Missing 'id'.", f);
+              return;
+          }
+
+          const inpEl = document.createElement('c-inp'); // Use shortened tag
+          inpEl.setAttribute('id', f.id);
+          inpEl.setAttribute('type', f.type || 'text');
+          if (f.name) inpEl.setAttribute('name', f.name);
+           // Label is often handled by the input component itself now, but keep if needed
+          // if (f.label) inpEl.setAttribute('label', f.label);
+          if (f.placeholder) inpEl.setAttribute('placeholder', f.placeholder);
+          if (f.value !== undefined) inpEl.setAttribute('value', f.value);
+          if (f.required) inpEl.setAttribute('required', '');
+          if (f.disabled) inpEl.setAttribute('disabled', '');
+          if (f.readonly) inpEl.setAttribute('readonly', '');
+          if (f.pattern) inpEl.setAttribute('pattern', f.pattern);
+          if (f.title) inpEl.setAttribute('title', f.title);
+
+          if ((f.type === 'select' || f.type === 'radio') && f.options) {
+              inpEl.setAttribute('options', JSON.stringify(f.options));
+          }
+
+          this.fElems[f.id] = inpEl;
+          this.dlg.appendChild(inpEl);
+      });
+
+      this.dlg.options = [
+          {
+              label: this.cfg.cancelLabel || 'Cancel',
+              class: 'cancel-btn',
+              callback: this._hCncl
+          },
+          {
+              label: this.cfg.saveLabel || 'Save',
+              class: 'save-btn',
+              callback: this._hSv
+          }
+      ];
+
+      this.mdl.appendChild(this.dlg);
+      c.appendChild(this.mdl);
+
+      this.mdl.classList.add(this.dlg.getAttribute('theme'));
+  }
+
+  _hSv() {
+      let isValid = true;
+      const fData = {};
+
+      this.flds.forEach(f => {
+          const el = this.fElems[f.id];
+          if (el) {
+              // Use getvalidation method from c-inp
+              if (typeof el.isValid === 'function' && !el.isValid()) {
+                   console.log(`Validation failed for field: ${f.id}`);
+                  isValid = false;
+              }
+              // Use getVal method from c-inp
+               fData[f.id] = typeof el.getVal === 'function' ? el.getVal() : (el.value || null) ;
+          }
+      });
+
+      if (isValid) {
+          console.log('Form is valid. Data:', fData);
+          this.svCb(fData);
+          this.hide();
+      } else {
+          console.warn('Form validation failed. Please check the highlighted fields.');
+      }
+  }
+
+  _hCncl() {
+      console.log('Cancel clicked');
+      this.cnclCb();
+      this.hide();
+  }
+
+  setData(d) {
+      if (!d || typeof d !== 'object') {
+          console.warn("setData called with invalid data:", d);
+          return;
+      }
+
+      this.flds.forEach(f => {
+          const el = this.fElems[f.id];
+          if (el && d.hasOwnProperty(f.id)) {
+              // Use setVal method from c-inp
+              if (typeof el.setVal === 'function') {
+                  el.setVal(d[f.id]);
+              } else { // Fallback for elements without setVal
+                  el.value = d[f.id];
+              }
+          }
+       });
+  }
+
+  getData() {
+      const fData = {};
+      this.flds.forEach(f => {
+          const el = this.fElems[f.id];
+          if (el) {
+               // Use getVal method from c-inp
+               fData[f.id] = typeof el.getVal === 'function' ? el.getVal() : (el.value || null);
+          }
+      });
+      return fData;
+  }
+
+  show() {
+      if (this.mdl) {
+          // Ensure internal show method exists (it does in dlg-cont)
+          if (typeof this.mdl.show === 'function') {
+               this.mdl.show();
+          } else { // Fallback if needed, though unlikely with dlg-cont
+               this.mdl.setAttribute('visible', '');
+          }
+      } else {
+          console.error("Cannot show modal: FrmGen not initialized or modal element not found.");
+      }
+  }
+
+  hide() {
+      if (this.mdl) {
+           // Ensure internal hide method exists (it does in dlg-cont)
+           if (typeof this.mdl.hide === 'function') {
+               this.mdl.hide();
+          } else { // Fallback if needed
+               this.mdl.removeAttribute('visible');
+          }
+      } else {
+          console.error("Cannot hide modal: FrmGen not initialized or modal element not found.");
+      }
+  }
+}

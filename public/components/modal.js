@@ -952,186 +952,434 @@ if (!customElements.get('c-inp')) {
   }
   customElements.define('c-inp', CInp);
 }
-class FrmGen {
-  constructor(cfg) {
-      if (!cfg || !cfg.modalId || !cfg.fields || !Array.isArray(cfg.fields)) {
-          throw new Error("FrmGen cfg requires 'modalId' and 'fields' array.");
+// --- TEMPLATES and WEB COMPONENTS (EpisodeList, SeasonList, SeriesSeasonsModal) ---
+class EpisodeList extends HTMLElement {
+  constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+
+      // --- CORRECCIÓN ---
+      // Define el contenido directamente, sin las etiquetas <template> externas.
+      const templateContent = `
+          <style>
+            .episode-list-header {
+              margin-bottom: 15px;
+              padding-bottom: 10px;
+              border-bottom: 1px solid #ddd;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              flex-wrap: wrap; /* Para que el botón baje si no cabe */
+            }
+            .episode-list-header h3 {
+                margin: 0 10px 0 0; /* Añade margen derecho */
+                font-size: 1.2em;
+                color: #333;
+                flex-grow: 1; /* Permite que el título crezca */
+            }
+            .back-to-seasons-button {
+                padding: 3px 8px;
+                font-size: 0.9em;
+                cursor: pointer;
+                background: none;
+                border: 1px solid #007bff;
+                color: #007bff;
+                border-radius: 3px;
+                flex-shrink: 0; /* Evita que el botón se encoja */
+            }
+            .back-to-seasons-button:hover {
+                background-color: #e7f3ff;
+            }
+            .episode-item {
+              padding: 8px 0;
+              border-bottom: 1px dashed #eee;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              flex-wrap: wrap; /* Para responsividad */
+            }
+            .episode-item:last-child {
+                border-bottom: none;
+            }
+            .episode-title {
+              font-size: 0.95em;
+              flex-grow: 1;
+              margin-right: 10px; /* Espacio entre título y acciones */
+               /* Para que el texto largo no descuadre el layout */
+              overflow-wrap: break-word;
+              word-break: break-word;
+            }
+             .episode-actions {
+               display: flex; /* Asegura que los botones estén en línea */
+               align-items: center; /* Alinea verticalmente */
+               flex-shrink: 0; /* Evita que se encojan */
+               margin-left: auto; /* Empuja a la derecha */
+               padding-left: 5px; /* Pequeño espacio si el título llega */
+             }
+            .episode-actions button {
+                margin-left: 5px;
+              padding: 2px 6px;
+              font-size: 0.8em;
+              cursor: pointer;
+              background: none;
+              border: 1px solid #ccc;
+              border-radius: 3px;
+            }
+              .episode-actions button:hover {
+                background-color: #eef;
+            }
+            p { margin: 5px 0; }
+            .loading, .no-capitulos {
+              color: #888;
+              font-style: italic;
+              padding: 10px 0;
+            }
+            #ep-list {
+                padding-left: 10px; /* Considera si este padding es necesario */
+            }
+          </style>
+          <div class="episode-list-header">
+            <h3 id="season-header-title">Capítulos</h3>
+            <button class="back-to-seasons-button">← Volver a Temporadas</button>
+          </div>
+          <div id="ep-list">
+            <p class="loading">Cargando capítulos...</p>
+          </div>
+      `;
+      // Asigna el contenido directamente al innerHTML del shadowRoot
+      this.shadowRoot.innerHTML = templateContent;
+      // --- FIN CORRECCIÓN ---
+
+      this._capitulos = [];
+      this._seasonInfo = { id: null, number: null, title: '', animeId: null }; // Usar animeId es más claro que seriesId si trabajas con animes
+
+      // Guardar referencias a elementos usados frecuentemente (buena práctica)
+      this._listContainer = this.shadowRoot.querySelector('#ep-list');
+      this._headerTitle = this.shadowRoot.querySelector('#season-header-title');
+      this._backButton = this.shadowRoot.querySelector('.back-to-seasons-button');
+
+      // Añadir el listener DESPUÉS de que el HTML esté en el DOM
+      if (this._backButton) { // Siempre es buena idea comprobar si se encontró
+           this._backButton.addEventListener('click', () => this._emitAction('back-to-seasons', {
+               animeId: this._seasonInfo.animeId // Asegúrate que _seasonInfo tenga animeId cuando se llame
+           }));
+      } else {
+          console.error("Error interno: No se encontró el botón '.back-to-seasons-button'");
       }
-
-      this.cfg = cfg;
-      this.mId = cfg.modalId;
-      this.flds = cfg.fields;
-      this.val = cfg.validation || {};
-      this.svCb = typeof cfg.saveCallback === 'function' ? cfg.saveCallback : (fData) => {
-          console.warn("No svCb provided. Form data:", fData);
-      };
-      this.cnclCb = typeof cfg.cancelCallback === 'function' ? cfg.cancelCallback : () => {
-          console.log("Cancel action triggered.");
-      };
-
-      this.mdl = null;
-      this.dlg = null;
-      this.fElems = {};
-
-      this._hSv = this._hSv.bind(this);
-      this._hCncl = this._hCncl.bind(this);
   }
 
-  init(cId) {
-      const c = document.getElementById(cId);
-      if (!c) {
-          console.error(`FrmGen init failed: Container with id "${cId}" not found.`);
+  setSeasonData(capitulos, seasonInfo) {
+      this._capitulos = capitulos || [];
+      this._seasonInfo = seasonInfo || { id: null, number: null, title: '', animeId: null };
+      console.log("seasonInfo",this._seasonInfo, "capitulos",this._capitulos)
+      this.render();
+  }
+
+  render() {
+      // Usar las referencias guardadas
+      const listContainer = this._listContainer;
+      const headerTitle = this._headerTitle;
+
+      if (!listContainer || !headerTitle) {
+           console.error("Error interno: Faltan elementos del contenedor o título en el shadow DOM.");
+           return;
+      }
+
+      listContainer.innerHTML = ''; // Limpiar contenedor de episodios
+
+      // Usar textContent para seguridad y rendimiento al establecer texto dinámico
+      headerTitle.textContent = `Temporada ${this._seasonInfo.number}${this._seasonInfo.title ? `: ${this._seasonInfo.title}` : ''} - Capítulos`;
+
+      if (!this._capitulos || this._capitulos.length === 0) {
+          listContainer.innerHTML = '<p class="no-capitulos">No hay capítulos para mostrar para esta temporada.</p>';
           return;
       }
 
-      this.mdl = document.createElement('dlg-cont'); // Use shortened tag
-      this.mdl.id = this.mId;
-      if (this.cfg.required) {
-          this.mdl.setAttribute('required', '');
-      }
-
-      this.dlg = document.createElement('c-dlg'); // Use shortened tag
-      this.dlg.setAttribute('title', this.cfg.title || 'Form');
-      if (this.cfg.description) {
-          this.dlg.setAttribute('description', this.cfg.description);
-      }
-      const th = this.cfg.theme || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-      this.dlg.setAttribute('theme', th);
-
-
-      this.flds.forEach(f => {
-          if (!f.id) {
-              console.warn("Form field skipped: Missing 'id'.", f);
-              return;
+      this._capitulos.forEach(episode => {
+          // Asegúrate de que 'episode' tiene 'id', 'number', 'title'
+          if (!episode || typeof episode.id === 'undefined' || typeof episode.number === 'undefined' || typeof episode.title === 'undefined') {
+              console.warn("Saltando episodio con datos incompletos:", episode);
+              return; // Saltar este episodio si le faltan datos esenciales
           }
 
-          const inpEl = document.createElement('c-inp'); // Use shortened tag
-          inpEl.setAttribute('id', f.id);
-          inpEl.setAttribute('type', f.type || 'text');
-          if (f.name) inpEl.setAttribute('name', f.name);
-           // Label is often handled by the input component itself now, but keep if needed
-          // if (f.label) inpEl.setAttribute('label', f.label);
-          if (f.placeholder) inpEl.setAttribute('placeholder', f.placeholder);
-          if (f.value !== undefined) inpEl.setAttribute('value', f.value);
-          if (f.required) inpEl.setAttribute('required', '');
-          if (f.disabled) inpEl.setAttribute('disabled', '');
-          if (f.readonly) inpEl.setAttribute('readonly', '');
-          if (f.pattern) inpEl.setAttribute('pattern', f.pattern);
-          if (f.title) inpEl.setAttribute('title', f.title);
+          const episodeDiv = document.createElement('div');
+          episodeDiv.classList.add('episode-item');
+          episodeDiv.dataset.episodeId = episode.id;
 
-          if ((f.type === 'select' || f.type === 'radio') && f.options) {
-              inpEl.setAttribute('options', JSON.stringify(f.options));
-          }
+          // Crear elementos dinámicamente es más seguro que innerHTML si los datos vienen del usuario
+          const titleSpan = document.createElement('span');
+          titleSpan.classList.add('episode-title');
+          // Usar textContent para evitar XSS
+          titleSpan.textContent = `Ep. ${episode.number}: ${episode.title}`;
 
-          this.fElems[f.id] = inpEl;
-          this.dlg.appendChild(inpEl);
+          const actionsDiv = document.createElement('div');
+          actionsDiv.classList.add('episode-actions');
+          actionsDiv.innerHTML = `
+              <button class="edit-episode" title="Editar Capítulo">✏️</button>
+              <button class="delete-episode" title="Eliminar Capítulo">🗑️</button>
+          `;
+
+          episodeDiv.appendChild(titleSpan);
+          episodeDiv.appendChild(actionsDiv);
+
+          // Añadir listeners a los botones de acción
+          actionsDiv.querySelector('.edit-episode').addEventListener('click', () =>
+              this._emitAction('edit-episode', {
+                  episodeId: episode.id,
+                  seasonId: this._seasonInfo.id,
+                  animeId: this._seasonInfo.animeId,
+                  episode: episode // Pasa el objeto completo
+              })
+          );
+
+          actionsDiv.querySelector('.delete-episode').addEventListener('click', () =>
+              this._handleDeleteEpisode(episode) 
+          );
+
+          listContainer.appendChild(episodeDiv);
       });
+  }
 
-      this.dlg.options = [
-          {
-              label: this.cfg.cancelLabel || 'Cancel',
-              class: 'cancel-btn',
-              callback: this._hCncl
+  _handleDeleteEpisode(episode) {
+           this._emitAction('delete-episode', {
+               episodeId: episode.id,
+               seasonId: this._seasonInfo.id,
+               animeId: this._seasonInfo.animeId,
+               episode: episode // Pasa el objeto completo
+           });
+  }
+
+  _emitAction(action, data) {
+      this.dispatchEvent(new CustomEvent('component-action', {
+          detail: {
+              action: action,
+              data: data, // Contiene toda la info necesaria (ids, objeto)
+              component: 'episode-list', // Identificador del componente
+              sourceId: this._seasonInfo.id // ID de la temporada a la que pertenece esta lista
           },
-          {
-              label: this.cfg.saveLabel || 'Save',
-              class: 'save-btn',
-              callback: this._hSv
-          }
-      ];
-
-      this.mdl.appendChild(this.dlg);
-      c.appendChild(this.mdl);
-
-      this.mdl.classList.add(this.dlg.getAttribute('theme'));
-  }
-
-  _hSv() {
-      let isValid = true;
-      const fData = {};
-
-      this.flds.forEach(f => {
-          const el = this.fElems[f.id];
-          if (el) {
-              // Use getvalidation method from c-inp
-              if (typeof el.isValid === 'function' && !el.isValid()) {
-                   console.log(`Validation failed for field: ${f.id}`);
-                  isValid = false;
-              }
-              // Use getVal method from c-inp
-               fData[f.id] = typeof el.getVal === 'function' ? el.getVal() : (el.value || null) ;
-          }
-      });
-
-      if (isValid) {
-          console.log('Form is valid. Data:', fData);
-          this.svCb(fData);
-          this.hide();
-      } else {
-          console.warn('Form validation failed. Please check the highlighted fields.');
-      }
-  }
-
-  _hCncl() {
-      console.log('Cancel clicked');
-      this.cnclCb();
-      this.hide();
-  }
-
-  setData(d) {
-      if (!d || typeof d !== 'object') {
-          console.warn("setData called with invalid data:", d);
-          return;
-      }
-
-      this.flds.forEach(f => {
-          const el = this.fElems[f.id];
-          if (el && d.hasOwnProperty(f.id)) {
-              // Use setVal method from c-inp
-              if (typeof el.setVal === 'function') {
-                  el.setVal(d[f.id]);
-              } else { // Fallback for elements without setVal
-                  el.value = d[f.id];
-              }
-          }
-       });
-  }
-
-  getData() {
-      const fData = {};
-      this.flds.forEach(f => {
-          const el = this.fElems[f.id];
-          if (el) {
-               // Use getVal method from c-inp
-               fData[f.id] = typeof el.getVal === 'function' ? el.getVal() : (el.value || null);
-          }
-      });
-      return fData;
-  }
-
-  show() {
-      if (this.mdl) {
-          // Ensure internal show method exists (it does in dlg-cont)
-          if (typeof this.mdl.show === 'function') {
-               this.mdl.show();
-          } else { // Fallback if needed, though unlikely with dlg-cont
-               this.mdl.setAttribute('visible', '');
-          }
-      } else {
-          console.error("Cannot show modal: FrmGen not initialized or modal element not found.");
-      }
-  }
-
-  hide() {
-      if (this.mdl) {
-           // Ensure internal hide method exists (it does in dlg-cont)
-           if (typeof this.mdl.hide === 'function') {
-               this.mdl.hide();
-          } else { // Fallback if needed
-               this.mdl.removeAttribute('visible');
-          }
-      } else {
-          console.error("Cannot hide modal: FrmGen not initialized or modal element not found.");
-      }
+          bubbles: true,
+          composed: true
+      }));
   }
 }
+
+customElements.define('episode-list', EpisodeList);
+
+class SeasonList extends HTMLElement {
+  constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+
+      // --- CORRECCIÓN ---
+      // Define el contenido directamente, sin las etiquetas <template> externas.
+      const templateContent = `
+          <style>
+            .season-item {
+              border: 1px solid #ddd;
+              margin-bottom: 15px;
+              padding: 10px;
+              border-radius: 5px;
+              background-color: #f9f9f9;
+            }
+            .season-header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 10px;
+              flex-wrap: wrap; /* Asegura que los botones se envuelvan si no hay espacio */
+            }
+            .season-title {
+              font-weight: bold;
+              font-size: 1.1em;
+              margin-right: 15px; /* Espacio entre título y acciones */
+              flex-grow: 1; /* Permite que el título ocupe espacio disponible */
+            }
+            .season-actions {
+                display: flex;
+                align-items: center;
+                flex-shrink: 0; /* Evita que los botones se encojan demasiado */
+                margin-left: auto; /* Empuja los botones a la derecha si hay espacio */
+                padding-left: 10px; /* Espacio por si el título llega hasta aquí */
+            }
+            .season-actions button {
+              margin-left: 5px;
+              padding: 3px 8px;
+              font-size: 0.9em;
+              cursor: pointer;
+              background: none;
+              border: 1px solid #ccc;
+              border-radius: 3px;
+            }
+            .season-actions button:hover {
+                background-color: #eee;
+            }
+            .view-capitulos-button {
+                cursor: pointer;
+                color: #007bff;
+                text-decoration: none;
+                border: 1px solid #007bff;
+                padding: 3px 8px;
+                border-radius: 3px;
+                font-size: 0.9em;
+                display: inline-block; /* O block si quieres que ocupe toda la línea */
+                margin-top: 5px;
+                background-color: white;
+            }
+            .view-capitulos-button:hover {
+                background-color: #e7f3ff;
+            }
+            .no-seasons {
+              color: #888;
+              font-style: italic;
+              padding: 10px 0;
+            }
+            #list-container {
+              /* Puedes añadir estilos específicos para el contenedor si es necesario */
+            }
+          </style>
+          <div id="list-container">
+            <!-- El contenido se renderizará aquí -->
+          </div>
+      `;
+      // Asigna el contenido directamente al innerHTML del shadowRoot
+      this.shadowRoot.innerHTML = templateContent;
+      // --- FIN CORRECCIÓN ---
+
+      this._seasons = [];
+      this._animeId = null;
+
+      // Es buena práctica obtener una referencia al contenedor aquí si no cambia
+      this._container = this.shadowRoot.querySelector('#list-container');
+  }
+
+  setSeasons(seasonsData, animeId) {
+      this._seasons = seasonsData || [];
+      this._animeId = animeId;
+      this.render();
+  }
+
+  // Este setter es un poco redundante con setSeasons, pero funciona.
+  // Asegúrate de que la data que pasas aquí tenga el formato esperado.
+  set seasons(data) {
+      // Podrías querer una lógica más robusta para extraer animeId
+      // si data no es un array o si está vacío.
+      const animeId = data && data.length > 0 ? data[0]?.animeId : this._animeId; // Intenta obtener de los datos o mantener el anterior
+      this.setSeasons(data, animeId);
+  }
+
+  get seasons() { return this._seasons; }
+
+  render() {
+      // Usa la referencia guardada en el constructor
+      const container = this._container; // O this.shadowRoot.querySelector('#list-container'); si prefieres buscarlo cada vez
+
+      // Pequeña comprobación por si acaso _container no se encontró (aunque con la corrección, debería)
+      if (!container) {
+          console.error("Error interno: El contenedor #list-container no se encontró en el shadow DOM.");
+          return;
+      }
+
+      container.innerHTML = ''; // Limpia el contenedor
+
+      if (!this._seasons || this._seasons.length === 0) {
+          container.innerHTML = '<p class="no-seasons">No hay temporadas para mostrar.</p>';
+          return;
+      }
+
+      this._seasons.forEach(season => {
+          const seasonDiv = document.createElement('div');
+          seasonDiv.classList.add('season-item');
+          seasonDiv.dataset.seasonId = season.id; // Asegúrate de que tus objetos 'season' tengan una propiedad 'id'
+          const episodeCount = season.capitulos?.length ?? 0; // Buen uso del optional chaining y nullish coalescing
+
+          // Usar textContent para los datos dinámicos es más seguro contra XSS
+          const seasonTitleSpan = document.createElement('span');
+          seasonTitleSpan.classList.add('season-title');
+          seasonTitleSpan.textContent = `Temporada ${season.number}${season.title ? `: ${season.title}` : ''}`;
+
+          const seasonHeaderDiv = document.createElement('div');
+          seasonHeaderDiv.classList.add('season-header');
+          seasonHeaderDiv.appendChild(seasonTitleSpan); // Añade el título
+
+          const seasonActionsDiv = document.createElement('div');
+          seasonActionsDiv.classList.add('season-actions');
+          seasonActionsDiv.innerHTML = `
+              <button class="edit-season" title="Editar Temporada">✏️</button>
+              <button class="delete-season" title="Eliminar Temporada">🗑️</button>
+              <button class="add-episode" title="Añadir Capítulo">+</button>
+          `;
+          seasonHeaderDiv.appendChild(seasonActionsDiv); // Añade las acciones
+
+          const viewcapitulosButton = document.createElement('button');
+          viewcapitulosButton.classList.add('view-capituos-button');
+          viewcapitulosButton.textContent = `Ver Capítulos (${episodeCount})`;
+
+          // Añadir listeners a los botones de acción
+          seasonActionsDiv.querySelector('.edit-season').addEventListener('click', () =>
+              this._emitAction('edit-season', {
+                  seasonId: season.id,
+                  animeId: this._animeId,
+                  season: season // Pasa el objeto season completo
+              })
+          );
+
+          seasonActionsDiv.querySelector('.delete-season').addEventListener('click', () =>
+              this._handleDeleteSeason(season)
+          );
+
+          seasonActionsDiv.querySelector('.add-episode').addEventListener('click', () =>
+              this._emitAction('add-episode', {
+                  seasonId: season.id,
+                  animeId: this._animeId,
+                  season: season
+              })
+          );
+
+          // Añadir listener al botón de ver capítulos
+          viewcapitulosButton.addEventListener('click', () =>
+              this._emitAction('view-capitulos', {
+                  seasonId: season.id,
+                  animeId: this._animeId,
+                  season: season
+              })
+          );
+
+          // Construir el div de la temporada
+          seasonDiv.appendChild(seasonHeaderDiv);
+          seasonDiv.appendChild(viewcapitulosButton);
+
+          container.appendChild(seasonDiv); // Añadir el div de la temporada al contenedor
+      });
+  }
+
+  _handleDeleteSeason(season) {
+      // Usa el número de temporada y la cuenta de episodios real para el mensaje
+      const episodeCount = season.capitulos?.length ?? 0;
+          this._emitAction('delete-season', {
+              seasonId: season.id,
+              animeId: this._animeId,
+              season: season // Pasa el objeto season completo
+          });
+      
+  }
+
+  _emitAction(action, data) {
+      this.dispatchEvent(new CustomEvent('component-action', {
+          detail: {
+              action: action,
+              data: data, // Los datos ya incluyen seasonId, animeId, season
+              component: 'season-list', // Identificador del componente que emite
+              sourceId: this._animeId // ID de la serie a la que pertenece esta lista
+          },
+          bubbles: true, // Permite que el evento suba por el DOM
+          composed: true // Permite que el evento cruce los límites del Shadow DOM
+      }));
+  }
+}
+
+// Asegúrate de que la definición del custom element esté fuera de la clase
+customElements.define('season-list', SeasonList);
+
+// El error "Uncaught (in promise)" que aparecía al final de tu código original
+// probablemente se debía a que el navegador intentaba ejecutar esa frase como código
+// después de definir el elemento. Lo he eliminado.

@@ -73,7 +73,11 @@ export const getSeason = async (data, callback = () => {}) => {
   callback();
   return seasons;
 };
-
+export const getSeasonId = async (data, callback = () => {}) => {
+  const seasons = await apiRequest(`/api/anime/${data.id}/temporadas/${data.temporadaId}`);
+  callback();
+  return seasons;
+};
 export const getEpisodesColumn = async (data, callback = () => {}) => {
   const { animeId, temporadaId } = data;
   const episodes = await apiRequest(`/api/anime/${animeId}/temporadas/${temporadaId}/capitulos`);

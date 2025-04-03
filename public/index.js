@@ -4,6 +4,7 @@ import {
   editAnime,
   saveSeason,
   getSeason,
+  getSeasonId,
   deleteAnime,
   deleteSeason,
   getEpisodesColumn,
@@ -46,7 +47,7 @@ let currentUserData = {
 };
 
 // Set initial data and config
-
+const appContainer = document.getElementById('nav_maincontnt');
 // Add a custom action (shows up in display mode only)
 function createelements(array){
     if (array && Array.isArray(array)) {
@@ -54,6 +55,7 @@ function createelements(array){
         array.forEach(element => {
             const grid_object = document.createElement('dynamic-object-display');
             grid_object.setConfig(element, userFieldConfigs);
+            grid_object.setAttribute('darkmode', ''); // Optionally set dark mode
             grid_object.addAction('view-detail', 'Seasons', 'btn-secondary'); // Example class
             grid_object.addEventListener('item-updated', (event) => {
                 console.log('Profile Updated!', event.detail);
@@ -64,16 +66,19 @@ function createelements(array){
         
             grid_object.addEventListener('delete-item', (event) => {
                 console.log('Delete Requested:', event.detail);
-                if (confirm(`Are you sure you want to delete user ${event.detail.name}?`)) {
                     console.log(`Simulating delete ${event.detail.id}...`);
                     // Call your API to delete the user
                     // On success, you might remove this component from the DOM
                     // grid_object.remove();
-                }
+                
             });
         
-            grid_object.addEventListener('view-detail', (event) => {
-                console.log('Custom Action:', event.detail);
+            grid_object.addEventListener('view-detail',async (event) => {
+                console.log('Custom Action:', event.detail)
+                    const selectColumn = event.detail;
+                    const result = await getSeason(selectColumn);
+                    console.log("result",result);
+                    renderSeasonsView(result, selectColumn);
             });
             gridManager.appendChild(grid_object);
         });
@@ -86,3 +91,128 @@ async function loadAnimes() {
       createelements(animes)
   })
 }
+async function renderSeasonsView(seriesData,data) {
+    const { id, nombre } = data
+    const parsedSeasons = mapSeason(seriesData);
+    if (!seriesData) {
+        console.error(`Serie con ID ${id} no encontrada.`);
+        appContainer.innerHTML = `<p>Error: Serie no encontrada.</p><button class="back-button">Volver</button>`;
+        return;
+    }
+
+    appContainer.innerHTML = `
+        <div class="view-header">
+            <h2>Temporadas de "${nombre}"</h2>
+        </div>
+        <div id="seasons-list-container"></div>
+          <div id="add-season-button-placeholder">
+            <button data-series-id="${id}">+ Añadir Temporada</button>
+        </div>
+    `;
+    appContainer.querySelector('#add-season-button-placeholder button')
+        .addEventListener('click', () => handleAddSeason(id));
+
+    const seasonListContainer = appContainer.querySelector('#seasons-list-container');
+    const seasonListElement = document.createElement('season-list');
+    seasonListContainer.appendChild(seasonListElement);
+    seasonListElement.setSeasons(parsedSeasons || [], id);
+}
+
+async function renderEpisodesView(data ,selectColumn) {
+    const { id, seasonId } = data
+    const result = await getSeasonId(selectColumn);
+    const seriesData = result
+    const seasonData = selectColumn;
+    const parsedEpisodes = mapEpisode(seasonData.capitulos|| []);
+    if (!seriesData || !seasonData) {
+        console.error(`Datos no encontrados para Series ID: ${id} o Season ID: ${seasonId}`);
+        appContainer.innerHTML = `<p>Error: Temporada no encontrada.</p><button class="back-button">Volver</button>`;
+        const backButton = appContainer.querySelector('.back-button');
+        if(id) {
+            backButton.textContent = `← Volver a Temporadas de "${seriesData?.title || 'Serie'}"`;
+            backButton.onclick = () => renderSeasonsView(id);
+        } else {
+            backButton.textContent = `← Volver a Series`;
+        }
+        return;
+    }
+
+    appContainer.innerHTML = '';
+
+    const episodeListElement = document.createElement('episode-list');
+    const seasonInfo = {
+        id: seasonData.id,
+        number: seasonData.number,
+        title: seasonData.title,
+        id: id
+    };
+    console.log("seasonInfo",seasonData,result,parsedEpisodes)
+    episodeListElement.setSeasonData(parsedEpisodes || [], seasonInfo);
+    appContainer.appendChild(episodeListElement);
+
+    const addEpisodeBtnContainer = document.createElement('div');
+    addEpisodeBtnContainer.style.marginTop = '20px';
+    addEpisodeBtnContainer.innerHTML = `<button data-series-id="${id}" data-season-id="${seasonId}">+ Añadir Capítulo a esta Temporada</button>`;
+    addEpisodeBtnContainer.querySelector('button').onclick = () => handleAddEpisode(id, seasonId);
+    appContainer.appendChild(addEpisodeBtnContainer);
+}
+function mapSeason(data) {
+    // Asegúrate que 'data' sea un array
+    if (!Array.isArray(data)) {
+         console.error("mapSeason esperaba un array, recibió:", data);
+         return [];
+    }
+    return data.map(item => {
+         // Comprobación básica del item
+         if (!item || typeof item !== 'object') {
+             console.warn("mapSeason saltando item inválido:", item);
+             return null; // Marcar para filtrar después
+         }
+         // Asegúrate de que las propiedades esperadas existan o usa valores por defecto
+         const numeroTemporada = item.numeroTemporada ?? 'N/A';
+         const nombreTemporada = item.nombreTemporada ?? '';
+         const temporadaId = item.temporadaId ?? null; // ID único de la temporada
+         const animeId = item.animeId ?? null; // ID de la serie a la que pertenece
+         const capitulos = item.capitulos || []; // ¡IMPORTANTE! Preservar los capítulos
+
+         if (temporadaId === null || animeId === null) {
+             console.warn("mapSeason saltando item con IDs faltantes:", item);
+             return null;
+         }
+
+        return {
+            ...item, // Opcional: mantener otras propiedades originales si se necesitan
+            number: numeroTemporada,
+            title: nombreTemporada,
+            id: animeId,       // ID de la temporada para identificarla
+            seasonId: temporadaId, // Puede ser redundante si usas 'id' consistentemente
+            animeId: animeId,      // ID de la serie padre
+            capitulos: capitulos   // Incluir el array de capítulos
+        };
+    }).filter(item => item !== null); // Eliminar cualquier item inválido que se marcó como null
+}
+function mapEpisode(data) {
+    return data.map(item => ({
+        ...item,
+        number: item.numeroCapitulo,
+        title: item.nombreCapitulo || item.tituloCapitulo,
+        seasonId: item.temporadaId,
+        id: item.capituloId
+    }));
+}
+appContainer.addEventListener('component-action', (e) => {
+    const { action, data, component, sourceId } = e.detail;
+    console.log(`Acción: ${action}, Componente: ${component}, ID: ${sourceId}`, data);
+    
+    // Ejecutar la acción basada en el tipo
+    switch(action) {
+        case 'view-capitulos':
+            renderEpisodesView(data.season,data.season);
+            break;
+        case 'back-to-seasons':
+            renderSeasonsView(data);
+            break;
+        default:
+            console.log(`Acción no manejada: ${action}`);
+    }
+});

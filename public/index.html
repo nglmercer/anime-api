@@ -1,38 +1,62 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anime Catalog</title>
-    <link rel="stylesheet" href="./assets/style.css"/>
-    
-</head>
-<body class="bg-gray-100">
-    <div id="modal-form-catalogo"></div>
-    <div id="modal-form-season"></div>
-    <div id="modal-form-episode"></div>
-    <div class="container mx-auto p-4">
-        <h1 class="text-3xl font-bold mb-6">Catálogo de Anime</h1>
-        
-        <!-- Tabla de animes -->
-        <div class="overflow-x-auto">
-            <object-table id="miTabla"></object-table>
-        </div>
-        <icon-button-bar id="mi-barra"></icon-button-bar>
-        <div class="overflow-x-auto">
-            <object-table id="secondTabla"></object-table>
-        </div>
-        <icon-button-bar id="second_bar"></icon-button-bar>
-        <div class="overflow-x-auto">
-            <object-table id="thirdTabla"></object-table>
-        </div>
-        <!-- Botón para agregar nuevo anime -->
-        <button class="btn btn-primary mt-4" id="abrir-modal-catalogo-btn">Agregar Anime</button>
-        
-    </div>
+    <title>Ejemplo ObjectGrid y GridManager</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            color-scheme: light dark;
+        }
+
+        /* Estilo adicional para botones de prueba */
+        .action-button {
+            background-color: #e0e0e0;
+        }
+
+        .highlight-btn {
+            background-color: yellowgreen;
+            color: black;
+        }
+    </style>
+
     <script src="./components/table.js"></script>
     <script src="./components/modal.js"></script>
-    <script src="./components/buttonbar.js"></script>
-    <script type="module" src="./main.js"></script>
+    <script src="./index.js" type="module"></script>
+
+</head>
+
+<body>
+
+    <h1>Gestor de Grids</h1>
+
+    <!-- Example buttons to interact with the form -->
+    <div class="grid" id="grid-manager">
+
+    </div>
+
+
+    <!-- Tabla de Temporadas -->
+    <h2>TEST: </h2>
+
+    <div id="series-list">
+        <!-- Buttons will be generated here by JS -->
+    </div>
+
+    <!-- The Modal Component -->
+    <series-seasons-modal id="seasons-modal"></series-seasons-modal>
+    <div id="nav_maincontnt">
+    </div>
+    <script>
+        const appContainer = document.getElementById('nav_maincontnt');
+        if (appContainer) {
+
+        }
+
+    </script>
 </body>
+
 </html>

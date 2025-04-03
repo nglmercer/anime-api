@@ -943,9 +943,9 @@ customElements.define('grid-manager', GridManager);
  * @fires {CustomEvent} [custom-action-name] - Dispatched when a custom action button is clicked. Detail contains the current form data.
  * @fires field-change - Dispatched whenever a c-inp field's value changes. Detail contains { name: string, value: any }.
  *
- * @method setConfig(item = {}, fieldConfigs = {}) - Sets the data object and the field configurations.
- * @method setItem(item = {}) - Updates the data object being edited without changing configurations.
- * @method addAction(actionName, buttonLabel, cssClass = '') - Adds a custom button to the form's actions.
+ * @method setConfig (item = {}, fieldConfigs = {}) - Sets the data object and the field configurations.
+ * @method setItem (item = {}) - Updates the data object being edited without changing configurations.
+ * @method addAction (actionName, buttonLabel, cssClass = '') - Adds a custom button to the form's actions.
  * @method validate() - Checks if all fields in the form are valid according to their configurations. Returns boolean.
  * @method getCurrentData() - Returns an object with the current values from all form fields.
  * @method reset() - Resets all form fields to their initial values when setConfig/setItem was called.

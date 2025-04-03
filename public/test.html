@@ -1,41 +1,241 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ejemplo ObjectGrid y GridManager</title>
+    <title>Gestor de Series</title>
     <style>
-        body {
-            font-family: sans-serif;
+        body { font-family: sans-serif; padding: 20px; }
+        #nav_maincontent {
+            border: 1px solid #ccc;
             padding: 20px;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+            min-height: 300px;
         }
-
-        /* Estilo adicional para botones de prueba */
-        .action-button {
-            background-color: #e0e0e0;
+        .view-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
         }
-
-        .highlight-btn {
-            background-color: yellowgreen;
-            color: black;
+        .view-header h2 {
+            margin: 0;
+        }
+        .back-button {
+            padding: 5px 10px;
+            cursor: pointer;
+            border: 1px solid #007bff;
+            background-color: white;
+            color: #007bff;
+            border-radius: 4px;
+        }
+        .back-button:hover {
+            background-color: #e7f3ff;
+        }
+        .initial-series-button {
+            display: block;
+            margin-bottom: 10px;
+            padding: 8px 15px;
+        }
+        #add-series-button-placeholder button,
+        #add-season-button-placeholder button {
+            margin-top: 20px;
+            padding: 8px 15px;
+            cursor: pointer;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+         #add-series-button-placeholder button:hover,
+        #add-season-button-placeholder button:hover {
+            background-color: #0056b3;
         }
     </style>
-
-    <script src="./components/table.js"></script>
-    <script src="./components/modal.js"></script>
-    <script src="./index.js" type="module"></script>
-
 </head>
-
 <body>
 
-    <h1>Gestor de Grids</h1>
+    <h1>Gestor de Series</h1>
 
-    <!-- Example buttons to interact with the form -->
-    <div class="grid" id="grid-manager">
-
+    <div id="nav_maincontent">
     </div>
-</body>
 
+    <script>
+        const allSeriesData = [
+            {
+                id: '1', title: 'Anime Increíble', description: 'Una aventura épica...',
+                seasons: [
+                    { id: 's1-1', number: 1, title: 'El Comienzo', seriesId: '1', episodes: [
+                        { id: 'e1-s1-1', number: 1, title: 'El despertar', seasonId: 's1-1'},
+                        { id: 'e2-s1-1', number: 2, title: 'Nuevos aliados', seasonId: 's1-1'},
+                        { id: 'e3-s1-1', number: 3, title: 'La primera prueba', seasonId: 's1-1'}
+                    ]},
+                    { id: 's2-1', number: 2, title: 'Nuevos Horizontes', seriesId: '1', episodes: [
+                        { id: 'e1-s2-1', number: 1, title: 'Viaje inesperado', seasonId: 's2-1'},
+                        { id: 'e2-s2-1', number: 2, title: 'Secretos revelados', seasonId: 's2-1'}
+                    ]},
+                    { id: 's3-1', number: 3, title: 'La Batalla Final (sin capítulos)', seriesId: '1', episodes: [] }
+                ]
+            },
+            {
+                id: '2', title: 'Otra Serie Genial', description: 'Misterio y comedia...',
+                seasons: [
+                    { id: 's1-2', number: 1, title: '', seriesId: '2', episodes: [
+                        { id: 'e1-s1-2', number: 1, title: 'Piloto confuso', seasonId: 's1-2'},
+                        { id: 'e2-s1-2', number: 2, title: 'El caso del objeto perdido', seasonId: 's1-2'},
+                        { id: 'e3-s1-2', number: 3, title: 'Un giro argumental', seasonId: 's1-2'},
+                        { id: 'e4-s1-2', number: 4, title: 'Resolución temporal', seasonId: 's1-2'}
+                    ]}
+                ]
+            },
+            { id: '3', title: 'Serie Corta (sin temporadas)', description: 'Una miniserie.', seasons: [] }
+        ];
+
+        function findSeries(id) {
+            return allSeriesData.find(s => s.id === id) || null;
+        }
+        
+        function findSeason(seriesData, seasonId) {
+            return seriesData?.seasons?.find(s => s.id === seasonId) || null;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const appContainer = document.getElementById('nav_maincontnt');
+            if (!appContainer) {
+                console.error("Contenedor principal '#nav_maincontnt' no encontrado.");
+                return;
+            }
+
+
+            function renderSeasonsView(seriesId) {
+                const seriesData = findSeries(seriesId);
+                if (!seriesData) {
+                    console.error(`Serie con ID ${seriesId} no encontrada.`);
+                    appContainer.innerHTML = `<p>Error: Serie no encontrada.</p><button class="back-button">Volver</button>`;
+                    return;
+                }
+
+                appContainer.innerHTML = `
+                    <div class="view-header">
+                        <h2>Temporadas de "${seriesData.title}"</h2>
+                        <button class="back-button">← Volver a Series</button>
+                    </div>
+                    <div id="seasons-list-container"></div>
+                      <div id="add-season-button-placeholder">
+                        <button data-series-id="${seriesId}">+ Añadir Temporada</button>
+                    </div>
+                `;
+                appContainer.querySelector('#add-season-button-placeholder button')
+                    .addEventListener('click', () => handleAddSeason(seriesId));
+
+                const seasonListContainer = appContainer.querySelector('#seasons-list-container');
+                const seasonListElement = document.createElement('season-list');
+                seasonListContainer.appendChild(seasonListElement);
+                seasonListElement.setSeasons(seriesData.seasons || [], seriesId);
+            }
+
+            function renderEpisodesView(seriesId, seasonId) {
+                const seriesData = findSeries(seriesId);
+                const seasonData = findSeason(seriesData, seasonId);
+
+                if (!seriesData || !seasonData) {
+                    console.error(`Datos no encontrados para Series ID: ${seriesId} o Season ID: ${seasonId}`);
+                    appContainer.innerHTML = `<p>Error: Temporada no encontrada.</p><button class="back-button">Volver</button>`;
+                    const backButton = appContainer.querySelector('.back-button');
+                    if(seriesId) {
+                        backButton.textContent = `← Volver a Temporadas de "${seriesData?.title || 'Serie'}"`;
+                        backButton.onclick = () => renderSeasonsView(seriesId);
+                    } else {
+                        backButton.textContent = `← Volver a Series`;
+                    }
+                    return;
+                }
+
+                appContainer.innerHTML = '';
+
+                const episodeListElement = document.createElement('episode-list');
+                const seasonInfo = {
+                    id: seasonData.id,
+                    number: seasonData.number,
+                    title: seasonData.title,
+                    seriesId: seriesId
+                };
+                episodeListElement.setSeasonData(seasonData.episodes || [], seasonInfo);
+                appContainer.appendChild(episodeListElement);
+
+                const addEpisodeBtnContainer = document.createElement('div');
+                addEpisodeBtnContainer.style.marginTop = '20px';
+                addEpisodeBtnContainer.innerHTML = `<button data-series-id="${seriesId}" data-season-id="${seasonId}">+ Añadir Capítulo a esta Temporada</button>`;
+                addEpisodeBtnContainer.querySelector('button').onclick = () => handleAddEpisode(seriesId, seasonId);
+                appContainer.appendChild(addEpisodeBtnContainer);
+            }
+
+            // Manejador central para todas las acciones de componentes
+            appContainer.addEventListener('component-action', (e) => {
+                const { action, data, component, sourceId } = e.detail;
+                console.log(`Acción: ${action}, Componente: ${component}, ID: ${sourceId}`, data);
+                
+                // Ejecutar la acción basada en el tipo
+                switch(action) {
+                    case 'view-episodes':
+                        renderEpisodesView(data.seriesId, data.seasonId);
+                        break;
+                    case 'back-to-seasons':
+                        renderSeasonsView(data.seriesId);
+                        break;
+                    case 'edit-season':
+                        handleEditSeason(data);
+                        break;
+                    case 'delete-season':
+                        handleDeleteSeason(data);
+                        break;
+                    case 'add-episode':
+                        handleAddEpisode(data.seriesId, data.seasonId);
+                        break;
+                    case 'edit-episode':
+                        handleEditEpisode(data);
+                        break;
+                    case 'delete-episode':
+                        handleDeleteEpisode(data);
+                        break;
+                    default:
+                        console.log(`Acción no manejada: ${action}`);
+                }
+            });
+
+            function handleAddSeries() {
+                console.log('Funcionalidad "Añadir Serie" no implementada.');
+            }
+
+            function handleAddSeason(seriesId) {
+                console.log(`Funcionalidad "Añadir Temporada" para serie ${seriesId} no implementada.`);
+            }
+
+            function handleEditSeason(data) {
+               console.log("Editando temporada:", data);
+            }
+
+            function handleDeleteSeason(data) {
+               console.log("Eliminando temporada:", data);
+            }
+
+            function handleAddEpisode(seriesId, seasonId) {
+                console.log(`App: Implementar añadir capítulo a Temporada ${seasonId}`, seriesId);
+            }
+
+            function handleEditEpisode(data) {
+               console.log("Editando episodio:", data);
+            }
+
+            function handleDeleteEpisode(data) {
+               console.log("Eliminando episodio:", data);
+            }
+
+        });
+    </script>
+</body>
 </html>

@@ -91,7 +91,7 @@ async function loadAnimes() {
       createelements(animes)
   })
 }
-async function renderSeasonsView(seriesData,data) {
+async function renderSeasonsView(seriesData = [], data) {
     const { id, nombre } = data
     const parsedSeasons = mapSeason(seriesData);
     if (!seriesData) {
@@ -130,7 +130,7 @@ async function renderEpisodesView(data ,selectColumn) {
         const backButton = appContainer.querySelector('.back-button');
         if(id) {
             backButton.textContent = `← Volver a Temporadas de "${seriesData?.title || 'Serie'}"`;
-            backButton.onclick = () => renderSeasonsView(id);
+            backButton.onclick = () => renderSeasonsView(seriesData,selectColumn);
         } else {
             backButton.textContent = `← Volver a Series`;
         }
@@ -141,10 +141,10 @@ async function renderEpisodesView(data ,selectColumn) {
 
     const episodeListElement = document.createElement('episode-list');
     const seasonInfo = {
+        ...data,
         id: seasonData.id,
         number: seasonData.number,
         title: seasonData.title,
-        id: id
     };
     console.log("seasonInfo",seasonData,result,parsedEpisodes)
     episodeListElement.setSeasonData(parsedEpisodes || [], seasonInfo);
@@ -200,7 +200,7 @@ function mapEpisode(data) {
         id: item.capituloId
     }));
 }
-appContainer.addEventListener('component-action', (e) => {
+appContainer.addEventListener('component-action',async  (e) => {
     const { action, data, component, sourceId } = e.detail;
     console.log(`Acción: ${action}, Componente: ${component}, ID: ${sourceId}`, data);
     
@@ -210,7 +210,9 @@ appContainer.addEventListener('component-action', (e) => {
             renderEpisodesView(data.season,data.season);
             break;
         case 'back-to-seasons':
-            renderSeasonsView(data);
+            console.log("Acción back-to-seasons recibida:",data)
+            const result = await getSeason(data.seasonInfo);
+            renderSeasonsView(result, data.seasonInfo);
             break;
         default:
             console.log(`Acción no manejada: ${action}`);

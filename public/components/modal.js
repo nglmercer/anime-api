@@ -1061,7 +1061,7 @@ class EpisodeList extends HTMLElement {
       // Añadir el listener DESPUÉS de que el HTML esté en el DOM
       if (this._backButton) { // Siempre es buena idea comprobar si se encontró
            this._backButton.addEventListener('click', () => this._emitAction('back-to-seasons', {
-               animeId: this._seasonInfo.animeId // Asegúrate que _seasonInfo tenga animeId cuando se llame
+              seasonInfo: this._seasonInfo // Asegúrate que _seasonInfo tenga animeId cuando se llame
            }));
       } else {
           console.error("Error interno: No se encontró el botón '.back-to-seasons-button'");
